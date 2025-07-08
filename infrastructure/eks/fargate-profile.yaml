@@ -1,0 +1,12 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: triggeriq-fargate-cluster
+  region: eu-west-3
+
+fargateProfiles:
+  - name: triggeriq-fargate
+    selectors:
+      - namespace: jobs
+      - namespace: classifier
