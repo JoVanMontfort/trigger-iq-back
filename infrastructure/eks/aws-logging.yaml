@@ -1,0 +1,56 @@
+apiVersion: v1
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+        Flush         1
+        Log_Level     info
+        Parsers_File  parsers.conf
+
+    [INPUT]
+        Name              tail
+        Path              /var/log/containers/*.log
+        Parser            docker
+        Tag               kube.*
+        Refresh_Interval  5
+        Mem_Buf_Limit     5MB
+        Skip_Long_Lines   On
+
+    [FILTER]
+        Name                kubernetes
+        Match               kube.*
+        Kube_URL            https://kubernetes.default.svc:443
+        Merge_Log           On
+        K8S-Logging.Parser  On
+        K8S-Logging.Exclude On
+
+    [OUTPUT]
+        Name cloudwatch_logs
+        Match   *
+        region eu-west-3
+        log_group_name /aws/eks/triggeriq-fargate-cluster/pods
+        log_stream_prefix from-fluent-bit-
+        auto_create_group true
+  output.conf: |
+    [OUTPUT]
+        Name cloudwatch_logs
+        Match   *
+        region eu-west-3
+        log_group_name /aws/eks/triggeriq-fargate-cluster/pods
+        log_stream_prefix from-fluent-bit-
+        auto_create_group true
+  parsers.conf: |
+    [PARSER]
+        Name   docker
+        Format json
+        Time_Key time
+        Time_Format %Y-%m-%dT%H:%M:%S.%L
+kind: ConfigMap
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","data":{"fluent-bit.conf":"[SERVICE]\n    Flush         1\n    Log_Level     info\n    Parsers_File  parsers.conf\n\n[INPUT]\n    Name              tail\n    Path              /var/log/containers/*.log\n    Parser            docker\n    Tag               kube.*\n    Refresh_Interval  5\n    Mem_Buf_Limit     5MB\n    Skip_Long_Lines   On\n\n[FILTER]\n    Name                kubernetes\n    Match               kube.*\n    Kube_URL            https://kubernetes.default.svc:443\n    Merge_Log           On\n    K8S-Logging.Parser  On\n    K8S-Logging.Exclude On\n\n[OUTPUT]\n    Name cloudwatch_logs\n    Match   *\n    region eu-west-3\n    log_group_name /aws/eks/triggeriq-fargate-cluster/pods\n    log_stream_prefix from-fluent-bit-\n    auto_create_group true\n","output.conf":"[OUTPUT]\n    Name cloudwatch_logs\n    Match   *\n    region eu-west-3\n    log_group_name /aws/eks/triggeriq-fargate-cluster/pods\n    log_stream_prefix from-fluent-bit-\n    auto_create_group true\n","parsers.conf":"[PARSER]\n    Name   docker\n    Format json\n    Time_Key time\n    Time_Format %Y-%m-%dT%H:%M:%S.%L\n"},"kind":"ConfigMap","metadata":{"annotations":{},"name":"aws-logging","namespace":"amazon-cloudwatch"}}
+  creationTimestamp: "2025-07-09T12:07:05Z"
+  name: aws-logging
+  namespace: kube-system
+  resourceVersion: "492079"
+  uid: c6949bba-da4e-4945-baa0-0d0dbd806686

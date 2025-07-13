@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hello-fargate-2
+  namespace: jobs
+spec:
+  containers:
+    - name: hello2
+      image: busybox
+      command: ["sh", "-c", "echo Hello again from Fargate && sleep 60"]
+  restartPolicy: Never

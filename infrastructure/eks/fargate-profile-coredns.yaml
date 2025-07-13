@@ -1,0 +1,13 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: triggeriq-fargate-cluster
+  region: eu-west-3
+
+fargateProfiles:
+  - name: coredns
+    selectors:
+      - namespace: kube-system
+        labels:
+          k8s-app: kube-dns
