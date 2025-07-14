@@ -32,6 +32,12 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
+
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>bedrockruntime</artifactId>
+                <version>2.25.25</version> <!-- or the version you want to standardize -->
+            </dependency>
         </dependencies>
     </dependencyManagement>
 </project>

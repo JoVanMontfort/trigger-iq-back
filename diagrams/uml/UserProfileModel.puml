@@ -1,0 +1,50 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+
+class UserProfile {
+  UUID userId
+  String email
+  String username
+  Date createdAt
+  String plan
+  List<String> roles
+  +getProfileSummary(): String
+}
+
+class UserPreferences {
+  Boolean darkMode
+  String lang
+  String layout
+}
+
+class UserAnalytics {
+  Date lastLogin
+  Map<String, Integer> usageStats
+  Integer sessions
+}
+
+class SentimentResult {
+  UUID id
+  Date timestamp
+  String source            // Source of sentiment: feedback form, AI, etc.
+  String label            // e.g., positive, negative, neutral
+  Float score             // Sentiment score (e.g., from 0.0 to 1.0)
+  Float magnitude         // Sentiment strength or confidence
+  String origin           // 'user' or 'system' (auto-generated)
+  Boolean isUserSubmitted // True if input was user-supplied
+}
+
+class UserIntegration {
+  UUID id
+  String type
+  Boolean connected
+  String externalId
+  String accessToken
+}
+
+UserProfile "1" -- "1" UserPreferences
+UserProfile "1" -- "1" UserAnalytics
+UserProfile "1" -- "0..*" SentimentResult
+UserProfile "1" -- "0..*" UserIntegration
+@enduml
