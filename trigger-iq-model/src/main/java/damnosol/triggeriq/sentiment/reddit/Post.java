@@ -1,16 +1,32 @@
 package damnosol.triggeriq.sentiment.reddit;
 
-import java.time.Instant;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import java.io.Serializable;
+import java.time.OffsetDateTime;
 import java.util.List;
 
-public class Post {
+public class Post implements Serializable {
+
     private String title;
     private String sentiment;
-    private Instant date;
+
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX") // Jackson format for Instant
+    private OffsetDateTime date;
+
     private List<Comment> comments;
 
-    // Constructor
-    public Post(String title, String sentiment, Instant date, List<Comment> comments) {
+    public Post() {}
+
+    // Constructor with @JsonCreator to assist Jackson in creating a Post from JSON
+    @JsonCreator
+    public Post(
+            @JsonProperty("title") String title,
+            @JsonProperty("sentiment") String sentiment,
+            @JsonProperty("date") OffsetDateTime date,
+            @JsonProperty("comments") List<Comment> comments) {
         this.title = title;
         this.sentiment = sentiment;
         this.date = date;
@@ -18,34 +34,42 @@ public class Post {
     }
 
     // Getters and setters
+    @JsonProperty("title")
     public String getTitle() {
         return title;
     }
 
+    @JsonProperty("title")
     public void setTitle(String title) {
         this.title = title;
     }
 
+    @JsonProperty("sentiment")
     public String getSentiment() {
         return sentiment;
     }
 
+    @JsonProperty("sentiment")
     public void setSentiment(String sentiment) {
         this.sentiment = sentiment;
     }
 
-    public Instant getDate() {
+    @JsonProperty("date")
+    public OffsetDateTime getDate() {
         return date;
     }
 
-    public void setDate(Instant date) {
+    @JsonProperty("date")
+    public void setDate(OffsetDateTime date) {
         this.date = date;
     }
 
+    @JsonProperty("comments")
     public List<Comment> getComments() {
         return comments;
     }
 
+    @JsonProperty("comments")
     public void setComments(List<Comment> comments) {
         this.comments = comments;
     }

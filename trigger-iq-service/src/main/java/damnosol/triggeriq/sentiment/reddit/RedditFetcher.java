@@ -2,125 +2,104 @@ package damnosol.triggeriq.sentiment.reddit;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Component;
-import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
-@Component
+@Service
 public class RedditFetcher {
-    private final RestTemplate restTemplate = new RestTemplate();
-    private final ObjectMapper mapper = new ObjectMapper();
 
-    // Fetch the top posts with their comments, managing rate limit
+    private static final Logger logger = LoggerFactory.getLogger(RedditFetcher.class);
+
+    private final RedditAuthService authService;
+    private final ObjectMapper mapper;
+
+    public RedditFetcher(RedditAuthService authService, ObjectMapper mapper) {
+        this.authService = authService;
+        this.mapper = mapper;
+    }
+
+    // Fetch the top posts with their comments and use Redis caching
+    @Cacheable(value = "redditPosts", keyGenerator = "safeKeyGenerator") // Cache posts based on subreddit and limit
     public List<Post> fetchTopPosts(String subreddit, int limit) {
-        String url = "https://www.reddit.com/r/" + subreddit + "/hot.json?limit=" + limit;
+        String accessToken = authService.getAccessToken();
+        String url = String.format("https://oauth.reddit.com/r/%s/hot.json?limit=%d", subreddit, limit);
 
         HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(accessToken);
         headers.set("User-Agent", "java:triggeriq.reddit:v1.0 (by /u/No-Economics9519)");
         HttpEntity<String> entity = new HttpEntity<>(headers);
 
+        ResponseEntity<String> response = new RestTemplate().exchange(url, HttpMethod.GET, entity, String.class);
+
         List<Post> results = new ArrayList<>();
-        int retries = 0;
-        final int MAX_RETRIES = 5;
+        try {
+            JsonNode root = mapper.readTree(response.getBody());
+            JsonNode posts = root.path("data").path("children");
 
-        while (retries < MAX_RETRIES) {
-            try {
-                // Send the request and get the response
-                ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+            for (JsonNode post : posts) {
+                String title = post.path("data").path("title").asText();
 
-                // Process the response body to extract post data
-                JsonNode root = mapper.readTree(response.getBody());
-                JsonNode posts = root.path("data").path("children");
+                long createdUtc = post.path("data").path("created_utc").asLong();
+                OffsetDateTime date = Instant.ofEpochSecond(createdUtc).atOffset(ZoneOffset.UTC);
 
-                for (JsonNode post : posts) {
-                    String title = post.path("data").path("title").asText();
-                    Instant date = Instant.ofEpochSecond(post.path("data").path("created_utc").asLong());
-                    List<Comment> comments = fetchComments(post.path("data").path("permalink").asText());
+                List<Comment> comments = fetchComments(post.path("data").path("permalink").asText());
 
-                    // Default sentiment to "Neutral"
-                    Post newPost = new Post(title, "Neutral", date, comments);
-                    results.add(newPost);
-                }
-
-                break; // Break out of the retry loop if successful
-
-            } catch (HttpClientErrorException.TooManyRequests e) {
-                // Rate-limited by Reddit
-                retries++;
-                HttpHeaders responseHeaders = e.getResponseHeaders();
-                String remainingRequests = responseHeaders.getFirst("x-ratelimit-remaining");
-                String resetTime = responseHeaders.getFirst("x-ratelimit-reset");
-
-                // Log rate limit information
-                System.out.println("Rate limit hit. Remaining requests: " + remainingRequests);
-                System.out.println("Rate limit reset time: " + resetTime);
-
-                long resetTimeMillis = Long.parseLong(resetTime) * 1000; // Convert to milliseconds
-                long waitTime = resetTimeMillis - System.currentTimeMillis();
-
-                if (waitTime > 0) {
-                    // Sleep until the reset time
-                    System.out.println("Sleeping for " + waitTime + " ms until rate limit reset.");
-                    try {
-                        TimeUnit.MILLISECONDS.sleep(waitTime); // Wait until reset
-                    } catch (InterruptedException interruptedException) {
-                        Thread.currentThread().interrupt();
-                        break;
-                    }
-                } else {
-                    // Exponential backoff if reset time is already in the past
-                    int exponentialBackoffTime = (int) Math.pow(2, retries) * 1000;
-                    System.out.println("Retrying in " + exponentialBackoffTime + " ms...");
-                    try {
-                        TimeUnit.MILLISECONDS.sleep(exponentialBackoffTime);
-                    } catch (InterruptedException interruptedException) {
-                        Thread.currentThread().interrupt();
-                        break;
-                    }
-                }
-            } catch (Exception e) {
-                // Log or handle exception
-                System.err.println("Error fetching/parsing Reddit data: " + e.getMessage());
-                break; // Exit the loop on any other exception
+                Post newPost = new Post(title, "Neutral", date, comments); // OffsetDateTime instead of Instant
+                results.add(newPost);
             }
+        } catch (Exception e) {
+            logger.error("Error fetching/parsing Reddit data: {}", e.getMessage(), e);
         }
 
         return results;
     }
 
     // Fetch comments for a post based on its permalink
-    private List<Comment> fetchComments(String permalink) {
-        String url = "https://www.reddit.com" + permalink + ".json";
+    @Cacheable(value = "redditComments", key = "#postUrl")
+    public List<Comment> fetchComments(String postUrl) {
+        String url = "https://www.reddit.com" + postUrl + ".json";
 
         HttpHeaders headers = new HttpHeaders();
         headers.set("User-Agent", "java:triggeriq.reddit:v1.0 (by /u/No-Economics9519)");
         HttpEntity<String> entity = new HttpEntity<>(headers);
 
-        ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+        ResponseEntity<String> response = new RestTemplate().exchange(url, HttpMethod.GET, entity, String.class);
 
         List<Comment> comments = new ArrayList<>();
         try {
             JsonNode root = mapper.readTree(response.getBody());
-            JsonNode commentData = root.get(1).path("data").path("children");
+            JsonNode commentData = root.path(1).path("data").path("children");
 
             for (JsonNode commentNode : commentData) {
-                String commentText = commentNode.path("data").path("body").asText();
+                String text = commentNode.path("data").path("body").asText();
+                double timestamp = commentNode.path("data").path("created_utc").asDouble();
+                Instant instant = Instant.ofEpochSecond((long) timestamp);
+
                 String author = commentNode.path("data").path("author").asText();
-                Instant commentDate = Instant.ofEpochSecond(commentNode.path("data").path("created_utc").asLong());
-                String sentiment = "Neutral";  // Default sentiment to "Neutral"
-                comments.add(new Comment(commentText, sentiment, author, commentDate.toString()));
+                String sentiment = "Neutral";
+
+                String dateStr = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+                        .withZone(ZoneOffset.UTC)
+                        .format(instant);
+
+                comments.add(new Comment(text, sentiment, dateStr, author));
             }
         } catch (Exception e) {
-            System.err.println("Error fetching comments: " + e.getMessage());
+            logger.error("Error fetching comments: " + e.getMessage());
         }
 
         return comments;

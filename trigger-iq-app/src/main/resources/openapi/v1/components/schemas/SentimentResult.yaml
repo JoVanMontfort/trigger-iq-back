@@ -1,0 +1,31 @@
+type: object
+properties:
+  id:
+    type: string
+    example: 'sentiment-456'
+  timestamp:
+    type: string
+    format: date-time
+    example: '2025-07-13T09:00:00Z'
+  score:
+    type: number
+    format: float
+    example: 0.75
+  magnitude:
+    type: number
+    format: float
+    example: 0.8
+  label:
+    type: string
+    enum: [positive, neutral, negative]
+    example: 'positive'
+  source:
+    type: string
+    example: 'feedback_form'
+  origin:
+    type: string
+    enum: [user, system]
+    example: 'user'
+  isUserSubmitted:
+    type: boolean
+    example: true

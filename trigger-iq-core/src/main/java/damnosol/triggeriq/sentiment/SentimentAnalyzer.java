@@ -6,6 +6,8 @@ import edu.stanford.nlp.pipeline.CoreDocument;
 import edu.stanford.nlp.pipeline.CoreSentence;
 import edu.stanford.nlp.pipeline.StanfordCoreNLP;
 import org.fusesource.jansi.Ansi;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -13,6 +15,8 @@ import java.util.Properties;
 
 @Component
 public class SentimentAnalyzer {
+
+    private static final Logger logger = LoggerFactory.getLogger(SentimentAnalyzer.class);
 
     private final StanfordCoreNLP pipeline;
 
@@ -33,23 +37,26 @@ public class SentimentAnalyzer {
     }
 
     public void analyzeAndPrint(List<Post> posts) {
+        if (posts == null || posts.isEmpty()) {
+            logger.warn("No posts available for sentiment analysis.");
+            return;
+        }
+
         for (Post post : posts) {
             String postSentiment = analyze(post.getTitle());
             post.setSentiment(postSentiment);
 
-            // Print the post title with sentiment icon and clear label
+            // Print post title with sentiment icon and color
             String postIcon = getSentimentIcon(postSentiment);
-            System.out.println(Ansi.ansi().fg(getSentimentColor(postSentiment))
-                    .a("\n[Post] " + postIcon + " " + post.getTitle()).reset());  // Clear "Post" label
+            logger.info(String.valueOf(Ansi.ansi().fg(getSentimentColor(postSentiment))
+                    .a("\n[Post] " + postIcon + " " + post.getTitle()).reset()));
 
-            // Analyze comments' sentiment
             for (Comment comment : post.getComments()) {
                 String commentSentiment = analyze(comment.getText());
                 comment.setSentiment(commentSentiment);
                 String commentIcon = getSentimentIcon(commentSentiment);
-                // Print each comment with sentiment icon and clear label
-                System.out.println(Ansi.ansi().fg(getSentimentColor(commentSentiment))
-                        .a("\t[Comment] " + commentIcon + " " + comment.getText()).reset());  // Clear "Comment" label
+                logger.info(String.valueOf(Ansi.ansi().fg(getSentimentColor(commentSentiment))
+                        .a("\t[Comment] " + commentIcon + " " + comment.getText()).reset()));
             }
         }
     }

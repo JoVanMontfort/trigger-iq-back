@@ -1,0 +1,12 @@
+spring:
+  profiles:
+    active: dev
+  docker:
+    compose:
+      enabled: false
+  application:
+    name: triggeriq-back
+
+jhipster:
+  clientApp:
+    name: triggeriq-back
