@@ -26,19 +26,19 @@ public class SentimentAnalyzer {
     private final ObjectMapper mapper;
     private final MinioStorageService minioStorageService;
     private final SentimentUpvoteAnalysis sentimentUpvoteAnalysis;
-    private final MultivariateSentimentAnalysis multivariateSentimentAnalysis;  // Add instance
+    private final MultivariateSentimentAnalysis multivariateSentimentAnalysis;
 
     public SentimentAnalyzer(ObjectMapper mapper,
                              MinioStorageService minioStorageService,
                              SentimentUpvoteAnalysis sentimentUpvoteAnalysis,
-                             MultivariateSentimentAnalysis multivariateSentimentAnalysis) {  // Inject new dependency
+                             MultivariateSentimentAnalysis multivariateSentimentAnalysis) {
         Properties props = new Properties();
         props.setProperty("annotators", "tokenize,ssplit,pos,parse,sentiment");
         this.pipeline = new StanfordCoreNLP(props);
         this.mapper = mapper;
         this.minioStorageService = minioStorageService;
         this.sentimentUpvoteAnalysis = sentimentUpvoteAnalysis;
-        this.multivariateSentimentAnalysis = multivariateSentimentAnalysis;  // Initialize
+        this.multivariateSentimentAnalysis = multivariateSentimentAnalysis;
     }
 
     public String analyze(String text) {
@@ -117,7 +117,8 @@ public class SentimentAnalyzer {
         // Perform all three statistical methods
         double correlation = sentimentUpvoteAnalysis.calculatePearsonCorrelation(upvotes, sentiment);
         double[] causalityLinear = sentimentUpvoteAnalysis.performLinearRegression(upvotes, sentiment);
-        String wekaModel = sentimentUpvoteAnalysis.performWekaRegression(upvotes, sentiment);
+        String wekaModel = multivariateSentimentAnalysis.performWekaRegression(upvotes, sentiment, extractCommentTexts(posts).toArray(new String[0]));
+        String wekaRandomForestModel = multivariateSentimentAnalysis.performWekaRandomForestRegression(sentiment, extractCommentLengths(posts), extractHasQuestionMarks(posts), upvotes);
 
         // Log results
         logger.info("Sentiment-Upvote Analysis Summary (Filtered):");
@@ -125,6 +126,7 @@ public class SentimentAnalyzer {
         logger.info("➤ Pearson Correlation: {}", correlation);
         logger.info("➤ Linear Regression Coefficients: {}", Arrays.toString(causalityLinear));
         logger.info("➤ Weka Linear Regression Model:\n{}", wekaModel);
+        logger.info("➤ Weka RandomForest Regression Model:\n{}", wekaRandomForestModel);
     }
 
     private void analyzeCommentSentimentUpvoteCorrelation(List<Post> posts) {
@@ -153,13 +155,15 @@ public class SentimentAnalyzer {
 
         double correlation = sentimentUpvoteAnalysis.calculatePearsonCorrelation(upvotes, sentiment);
         double[] causalityLinear = sentimentUpvoteAnalysis.performLinearRegression(upvotes, sentiment);
-        String wekaModel = sentimentUpvoteAnalysis.performWekaRegression(upvotes, sentiment);
+        String wekaModel = multivariateSentimentAnalysis.performWekaRegression(upvotes, sentiment, extractCommentTexts(posts).toArray(new String[0]));
+        String wekaRandomForestModel = multivariateSentimentAnalysis.performWekaRandomForestRegression(sentiment, extractCommentLengths(posts), extractHasQuestionMarks(posts), upvotes);
 
         logger.info("Comment Sentiment-Upvote Analysis Summary (Filtered):");
         logger.info("-----------------------------------------------------");
         logger.info("➤ Pearson Correlation: {}", correlation);
         logger.info("➤ Linear Regression Coefficients: {}", Arrays.toString(causalityLinear));
         logger.info("➤ Weka Linear Regression Model:\n{}", wekaModel);
+        logger.info("➤ Weka RandomForest Regression Model:\n{}", wekaRandomForestModel);
     }
 
     private void multivariateSentimentAnalysisAnalysis(List<Post> posts) {
@@ -243,5 +247,29 @@ public class SentimentAnalyzer {
 
     private String extractSubredditFromPost(Post post) {
         return post.getSubreddit() != null ? post.getSubreddit() : "unknown";
+    }
+
+    private List<String> extractCommentTexts(List<Post> posts) {
+        List<String> commentTexts = new ArrayList<>();
+        for (Post post : posts) {
+            for (Comment comment : post.getComments()) {
+                commentTexts.add(comment.getText());
+            }
+        }
+        return commentTexts;
+    }
+
+    private double[] extractCommentLengths(List<Post> posts) {
+        return posts.stream()
+                .flatMap(post -> post.getComments().stream())
+                .mapToDouble(comment -> comment.getText().length())
+                .toArray();
+    }
+
+    private double[] extractHasQuestionMarks(List<Post> posts) {
+        return posts.stream()
+                .flatMap(post -> post.getComments().stream())
+                .mapToDouble(comment -> comment.getText().contains("?") ? 1.0 : 0.0)
+                .toArray();
     }
 }

@@ -1,5 +1,6 @@
 package damnosol.triggeriq.sentiment;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.math3.stat.regression.OLSMultipleLinearRegression;
 import org.springframework.stereotype.Component;
 import weka.attributeSelection.AttributeSelection;
@@ -17,6 +18,7 @@ import java.util.Arrays;
 import java.util.Random;
 
 @Component
+@Slf4j
 public class MultivariateSentimentAnalysis {
 
     public static class RegressionResult {
@@ -70,32 +72,41 @@ public class MultivariateSentimentAnalysis {
     /**
      * Perform linear regression using Weka.
      */
-    public String performWekaRegression(double[] upvotes, double[] sentiment, String[] commentTexts) throws Exception {
+    public String performWekaRegression(double[] upvotes, double[] sentiment, String[] commentTexts) {
         if (upvotes.length != sentiment.length || sentiment.length != commentTexts.length) {
-            throw new IllegalArgumentException("Array lengths must match");
+            return "Error: Array lengths must match.";
         }
 
-        // Create features and instances for Weka
-        Instances dataSet = createInstances(upvotes, sentiment, commentTexts);
+        try {
+            // Create features and instances for Weka
+            Instances dataSet = createInstances(upvotes, sentiment, commentTexts);
 
-        // Build the linear regression model using Weka
-        LinearRegression model = new LinearRegression();
-        model.buildClassifier(dataSet);
+            // Build the linear regression model using Weka
+            LinearRegression model = new LinearRegression();
+            model.buildClassifier(dataSet);
 
-        // Predict the values using the Weka model
-        double[] predicted = new double[upvotes.length];
-        for (int i = 0; i < upvotes.length; i++) {
-            DenseInstance instance = (DenseInstance) dataSet.instance(i);
-            predicted[i] = model.classifyInstance(instance);
+            // Predict the values using the Weka model
+            double[] predicted = new double[upvotes.length];
+            for (int i = 0; i < upvotes.length; i++) {
+                DenseInstance instance = (DenseInstance) dataSet.instance(i);
+                predicted[i] = model.classifyInstance(instance);
+            }
+
+            // Calculate R² manually
+            double rSquared = computeRSquared(upvotes, predicted);
+
+            // Return the Weka model and R² value
+            return "__Weka Linear Regression Model__\n" + model.toString() + "\nR²: " + rSquared;
+        } catch (Exception e) {
+            // Handle exceptions and log error message
+            log.error("Error performing Weka regression: {}", e.getMessage(), e);
+            return "Error performing Weka regression: " + e.getMessage();
         }
-
-        // Calculate R² manually
-        double rSquared = computeRSquared(upvotes, predicted);
-
-        // Return the Weka model and R² value
-        return "__Weka Linear Regression Model__\n" + model.toString() + "\nR²: " + rSquared;
     }
 
+    /**
+     * Perform randomforest using Weka.
+     */
     public String performWekaRandomForestRegression(double[] sentimentScores,
                                                     double[] commentLengths,
                                                     double[] hasQuestionMarks,

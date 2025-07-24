@@ -65,6 +65,13 @@
             <artifactId>weka-dev</artifactId>
             <version>3.9.6</version>
         </dependency>
+
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>1.18.30</version> <!-- use latest -->
+            <scope>provided</scope>
+        </dependency>
     </dependencies>
 
     <build>
