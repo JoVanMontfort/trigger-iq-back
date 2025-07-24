@@ -2,13 +2,19 @@ package damnosol.triggeriq.sentiment;
 
 import org.apache.commons.math3.stat.regression.OLSMultipleLinearRegression;
 import org.springframework.stereotype.Component;
+import weka.attributeSelection.AttributeSelection;
+import weka.attributeSelection.InfoGainAttributeEval;
+import weka.attributeSelection.Ranker;
+import weka.classifiers.Evaluation;
 import weka.classifiers.functions.LinearRegression;
+import weka.classifiers.trees.RandomForest;
 import weka.core.Attribute;
 import weka.core.DenseInstance;
 import weka.core.Instances;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Random;
 
 @Component
 public class MultivariateSentimentAnalysis {
@@ -88,6 +94,75 @@ public class MultivariateSentimentAnalysis {
 
         // Return the Weka model and R² value
         return "__Weka Linear Regression Model__\n" + model.toString() + "\nR²: " + rSquared;
+    }
+
+    public String performWekaRandomForestRegression(double[] sentimentScores,
+                                                    double[] commentLengths,
+                                                    double[] hasQuestionMarks,
+                                                    double[] upvotes) {
+        try {
+            // Step 1: Define attributes
+            ArrayList<Attribute> attributes = new ArrayList<>();
+            attributes.add(new Attribute("sentimentScore"));
+            attributes.add(new Attribute("commentLength"));
+            attributes.add(new Attribute("hasQuestionMark"));
+            attributes.add(new Attribute("upvotes")); // Target variable
+
+            // Step 2: Create dataset
+            Instances dataset = new Instances("RedditCommentsRF", attributes, sentimentScores.length);
+            dataset.setClassIndex(dataset.numAttributes() - 1); // upvotes = target
+
+            for (int i = 0; i < sentimentScores.length; i++) {
+                double[] values = new double[]{
+                        sentimentScores[i],
+                        commentLengths[i],
+                        hasQuestionMarks[i],
+                        upvotes[i]
+                };
+                dataset.add(new DenseInstance(1.0, values));
+            }
+
+            // Step 3: Build RandomForest
+            RandomForest rf = new RandomForest();
+            rf.setNumIterations(100);
+            rf.buildClassifier(dataset);
+
+            // Step 4: Evaluate model
+            Evaluation eval = new Evaluation(dataset);
+            eval.crossValidateModel(rf, dataset, 10, new Random(1));
+
+            // Step 5: Feature importance using InfoGain
+            AttributeSelection attrSel = new AttributeSelection();
+            InfoGainAttributeEval infoGainEval = new InfoGainAttributeEval();
+            Ranker ranker = new Ranker();
+
+            attrSel.setEvaluator(infoGainEval);
+            attrSel.setSearch(ranker);
+            attrSel.SelectAttributes(dataset);
+
+            double[][] rankedAttributes = attrSel.rankedAttributes();
+
+            // Step 6: Build output string
+            StringBuilder result = new StringBuilder();
+            result.append("📊 RandomForest R²: ")
+                    .append(String.format("%.4f", Math.pow(eval.correlationCoefficient(), 2)))
+                    .append("\n\n");
+
+            result.append("🌲 RandomForest Model:\n")
+                    .append(rf.toString()).append("\n");
+
+            result.append("🔥 Feature Importances (InfoGain):\n");
+            for (double[] attr : rankedAttributes) {
+                int index = (int) attr[0];
+                double score = attr[1];
+                result.append(String.format("➤ %s: %.5f\n", dataset.attribute(index).name(), score));
+            }
+
+            return result.toString();
+
+        } catch (Exception e) {
+            return "RandomForest training failed: " + e.getMessage();
+        }
     }
 
     /**
