@@ -12,6 +12,7 @@ public class Comment implements Serializable {
     private String text;
     private String sentiment;
     private String author;
+    private int upvotes;
 
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX")
     private OffsetDateTime date;
@@ -24,10 +25,12 @@ public class Comment implements Serializable {
     public Comment(
             @JsonProperty("text") String text,
             @JsonProperty("sentiment") String sentiment,
+            @JsonProperty("upvotes") int upvotes,
             @JsonProperty("author") String author,
             @JsonProperty("date") OffsetDateTime date) {
         this.text = text;
         this.sentiment = sentiment;
+        this.upvotes = upvotes;
         this.author = author;
         this.date = date;
     }
@@ -51,6 +54,16 @@ public class Comment implements Serializable {
     @JsonProperty("sentiment")
     public void setSentiment(String sentiment) {
         this.sentiment = sentiment;
+    }
+
+    @JsonProperty("upvotes")
+    public int getUpvotes() {
+        return upvotes;
+    }
+
+    @JsonProperty("upvotes")
+    public void setUpvotes(int upvotes) {
+        this.upvotes = upvotes;
     }
 
     @JsonProperty("author")

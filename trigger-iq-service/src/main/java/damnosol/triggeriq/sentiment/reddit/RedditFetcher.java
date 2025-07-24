@@ -50,14 +50,16 @@ public class RedditFetcher {
             JsonNode posts = root.path("data").path("children");
 
             for (JsonNode post : posts) {
-                String title = post.path("data").path("title").asText();
+                JsonNode data = post.path("data");
 
-                long createdUtc = post.path("data").path("created_utc").asLong();
+                String title = data.path("title").asText();
+                int upvotes = data.path("score").asInt(); // ← Extract upvotes
+                long createdUtc = data.path("created_utc").asLong();
                 OffsetDateTime date = Instant.ofEpochSecond(createdUtc).atOffset(ZoneOffset.UTC);
 
-                List<Comment> comments = fetchComments(post.path("data").path("permalink").asText());
+                List<Comment> comments = fetchComments(data.path("permalink").asText());
 
-                Post newPost = new Post(title, "Neutral", date, comments); // OffsetDateTime instead of Instant
+                Post newPost = new Post(title, "Neutral", upvotes, date, comments);
                 results.add(newPost);
             }
         } catch (Exception e) {
@@ -84,23 +86,24 @@ public class RedditFetcher {
             JsonNode commentData = root.path(1).path("data").path("children");
 
             for (JsonNode commentNode : commentData) {
-                String text = commentNode.path("data").path("body").asText();
-                double timestamp = commentNode.path("data").path("created_utc").asDouble();
+                JsonNode data = commentNode.path("data");
+
+                String text = data.path("body").asText();
+                double timestamp = data.path("created_utc").asDouble();
                 Instant instant = Instant.ofEpochSecond((long) timestamp);
-
-                String author = commentNode.path("data").path("author").asText();
-                String sentiment = "Neutral";
-
-                // Convert Instant to OffsetDateTime (UTC)
                 OffsetDateTime date = instant.atOffset(ZoneOffset.UTC);
 
-                // Add the comment to the list
-                comments.add(new Comment(text, sentiment, author, date));
+                String author = data.path("author").asText();
+                int upvotes = data.path("score").asInt();
+                String sentiment = "Neutral";
+
+                comments.add(new Comment(text, sentiment, upvotes, author, date));
             }
         } catch (Exception e) {
-            logger.error("Error fetching comments: " + e.getMessage());
+            logger.error("Error fetching comments: " + e.getMessage(), e);
         }
 
         return comments;
     }
+
 }

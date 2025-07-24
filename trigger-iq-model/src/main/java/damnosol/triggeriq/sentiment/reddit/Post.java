@@ -12,23 +12,27 @@ public class Post implements Serializable {
 
     private String title;
     private String sentiment;
+    private int upvotes;
 
-    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX") // Jackson format for Instant
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX")
     private OffsetDateTime date;
 
     private List<Comment> comments;
 
-    public Post() {}
+    public Post() {
+    }
 
     // Constructor with @JsonCreator to assist Jackson in creating a Post from JSON
     @JsonCreator
     public Post(
             @JsonProperty("title") String title,
             @JsonProperty("sentiment") String sentiment,
+            @JsonProperty("upvotes") int upvotes,
             @JsonProperty("date") OffsetDateTime date,
             @JsonProperty("comments") List<Comment> comments) {
         this.title = title;
         this.sentiment = sentiment;
+        this.upvotes = upvotes;
         this.date = date;
         this.comments = comments;
     }
@@ -52,6 +56,16 @@ public class Post implements Serializable {
     @JsonProperty("sentiment")
     public void setSentiment(String sentiment) {
         this.sentiment = sentiment;
+    }
+
+    @JsonProperty("upvotes")
+    public int getUpvotes() {
+        return upvotes;
+    }
+
+    @JsonProperty("upvotes")
+    public void setUpvotes(int upvotes) {
+        this.upvotes = upvotes;
     }
 
     @JsonProperty("date")
