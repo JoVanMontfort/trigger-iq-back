@@ -1,8 +1,14 @@
 package damnosol.triggeriq.config;
 
 import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.databind.*;
+import com.fasterxml.jackson.databind.JsonSerializer;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import damnosol.triggeriq.sentiment.reddit.Post;
+import damnosol.triggeriq.serializer.ListPostSerializer;
+import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.cache.interceptor.KeyGenerator;
 import org.springframework.context.annotation.Bean;
@@ -10,13 +16,16 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
-import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
+import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
+import java.util.List;
 import java.util.stream.Collectors;
 
 @Configuration
@@ -43,21 +52,27 @@ public class RedisConfig {
     }
 
     @Bean
-    public RedisCacheManager redisCacheManager(RedisConnectionFactory connectionFactory) {
-        ObjectMapper mapper = new ObjectMapper();
+    public RedisTemplate<String, List<Post>> redisTemplate(RedisConnectionFactory connectionFactory,
+                                                           ObjectMapper redisObjectMapper) {
+        RedisTemplate<String, List<Post>> template = new RedisTemplate<>();
+        template.setConnectionFactory(connectionFactory);
+        template.setKeySerializer(new StringRedisSerializer());
+        template.setValueSerializer(new ListPostSerializer(redisObjectMapper)); // FIXED
+        return template;
+    }
 
-        // Disable default typing (no polymorphic deserialization)
-        mapper.disable(MapperFeature.DEFAULT_VIEW_INCLUSION);
-        mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-        JavaTimeModule timeModule = new JavaTimeModule();
-        mapper.registerModule(timeModule);
-
-        GenericJackson2JsonRedisSerializer serializer = new GenericJackson2JsonRedisSerializer(mapper);
-
+    @Bean
+    public CacheManager cacheManager(RedisConnectionFactory connectionFactory,
+                                     ObjectMapper redisObjectMapper) {
+        // Set TTL for cache entries (for example, 5 minutes)
         RedisCacheConfiguration config = RedisCacheConfiguration.defaultCacheConfig()
-                .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(serializer));
+                .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
+                .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(new ListPostSerializer(redisObjectMapper)))
+                .entryTtl(Duration.ofMinutes(5)); // Cache entries will expire after 5 minutes
 
-        return RedisCacheManager.builder(connectionFactory).cacheDefaults(config).build();
+        return RedisCacheManager.builder(connectionFactory)
+                .cacheDefaults(config)
+                .build();
     }
 
     @Bean

@@ -15,7 +15,6 @@ import org.springframework.web.client.RestTemplate;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -92,11 +91,11 @@ public class RedditFetcher {
                 String author = commentNode.path("data").path("author").asText();
                 String sentiment = "Neutral";
 
-                String dateStr = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
-                        .withZone(ZoneOffset.UTC)
-                        .format(instant);
+                // Convert Instant to OffsetDateTime (UTC)
+                OffsetDateTime date = instant.atOffset(ZoneOffset.UTC);
 
-                comments.add(new Comment(text, sentiment, dateStr, author));
+                // Add the comment to the list
+                comments.add(new Comment(text, sentiment, author, date));
             }
         } catch (Exception e) {
             logger.error("Error fetching comments: " + e.getMessage());

@@ -1,16 +1,23 @@
 package damnosol.triggeriq.sentiment.reddit;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.io.Serializable;
+import java.time.OffsetDateTime;
 
 public class Comment implements Serializable {
 
     private String text;
     private String sentiment;
     private String author;
-    private String date;
+
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX")
+    private OffsetDateTime date;
+
+    public Comment() {
+    }
 
     // Constructor with @JsonCreator to assist Jackson in creating a Comment from JSON
     @JsonCreator
@@ -18,7 +25,7 @@ public class Comment implements Serializable {
             @JsonProperty("text") String text,
             @JsonProperty("sentiment") String sentiment,
             @JsonProperty("author") String author,
-            @JsonProperty("date") String date) {
+            @JsonProperty("date") OffsetDateTime date) {
         this.text = text;
         this.sentiment = sentiment;
         this.author = author;
@@ -57,12 +64,12 @@ public class Comment implements Serializable {
     }
 
     @JsonProperty("date")
-    public String getDate() {
+    public OffsetDateTime getDate() {
         return date;
     }
 
     @JsonProperty("date")
-    public void setDate(String date) {
+    public void setDate(OffsetDateTime date) {
         this.date = date;
     }
 
