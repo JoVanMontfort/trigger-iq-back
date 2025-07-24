@@ -1,0 +1,73 @@
+openapi: 3.0.1
+info:
+  title: TriggerIQ Sentiment API
+  version: 1.0.0
+  description: API for managing user sentiment data.
+
+paths:
+  /users:
+    post:
+      summary: Create a new user profile
+      operationId: createUser
+      tags:
+        - User
+      requestBody:
+        description: New user profile data
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./components/schemas/UserProfile.yaml
+      responses:
+        '201':
+          description: User profile created
+          content:
+            application/json:
+              schema:
+                $ref: ./components/schemas/UserProfile.yaml
+        '400':
+          $ref: ./components/responses/400.yaml
+
+  /users/{userId}:
+    get:
+      summary: Get a user profile by ID
+      operationId: getUser
+      tags:
+        - User
+      parameters:
+        - $ref: ./components/parameters/userId.yaml
+      responses:
+        '200':
+          description: Retrieved user profile
+          content:
+            application/json:
+              schema:
+                $ref: ./components/schemas/UserProfile.yaml
+        '404':
+          $ref: ./components/responses/404.yaml
+
+  /users/{userId}/sentiment:
+    $ref: ./paths/users/user-sentiment.yaml
+
+components:
+  schemas:
+    SentimentResult:
+      $ref: ./components/schemas/SentimentResult.yaml
+    UserProfile:
+      $ref: ./components/schemas/UserProfile.yaml
+
+  parameters:
+    userId:
+      $ref: ./components/parameters/userId.yaml
+
+  responses:
+    200:
+      $ref: ./components/responses/200.yaml
+    400:
+      $ref: ./components/responses/400.yaml
+    404:
+      $ref: ./components/responses/404.yaml
+
+  requestBodies:
+    SentimentRequest:
+      $ref: ./components/requestBodies/SentimentRequest.yaml

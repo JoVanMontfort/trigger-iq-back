@@ -176,3 +176,4 @@ coverage/
 /trigger-iq-core/target/maven-archiver/pom.properties
 /trigger-iq-model/target/maven-archiver/pom.properties
 /trigger-iq-service/target/maven-archiver/pom.properties
+/.env

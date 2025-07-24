@@ -1,0 +1,37 @@
+post:
+  summary: Submit sentiment data for a user
+  operationId: submitSentiment
+  tags:
+    - Sentiment
+  parameters:
+    - $ref: ../../components/parameters/userId.yaml
+  requestBody:
+    $ref: ../../components/requestBodies/SentimentRequest.yaml
+  responses:
+    '200':
+      $ref: ../../components/responses/200.yaml
+    '400':
+      $ref: ../../components/responses/400.yaml
+    '404':
+      $ref: ../../components/responses/404.yaml
+
+get:
+  summary: Retrieve sentiment data for a user
+  operationId: getUserSentiments
+  tags:
+    - Sentiment
+  parameters:
+    - $ref: ../../components/parameters/userId.yaml
+  responses:
+    '200':
+      description: Successfully retrieved sentiment data
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: ../../components/schemas/SentimentResult.yaml
+    '400':
+      $ref: ../../components/responses/400.yaml
+    '404':
+      $ref: ../../components/responses/404.yaml

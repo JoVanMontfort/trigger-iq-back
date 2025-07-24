@@ -1,0 +1,9 @@
+description: Bad Request - Invalid input data
+content:
+  application/json:
+    schema:
+      type: object
+      properties:
+        error:
+          type: string
+          example: Invalid request payload
