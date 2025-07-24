@@ -29,7 +29,7 @@
 
         <dependency>
             <groupId>damnosol.triggeriq</groupId>
-            <artifactId>trigger-iq-model</artifactId>
+            <artifactId>trigger-iq-service</artifactId>
             <version>0.0.1-SNAPSHOT</version>
         </dependency>
 
@@ -50,6 +50,20 @@
             <groupId>org.fusesource.jansi</groupId>
             <artifactId>jansi</artifactId>
             <version>2.4.0</version>
+        </dependency>
+
+        <!-- Apache Commons Math for Pearson Correlation and Linear Regression -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-math3</artifactId>
+            <version>3.6.1</version>
+        </dependency>
+
+        <!-- Weka for Regression -->
+        <dependency>
+            <groupId>nz.ac.waikato.cms.weka</groupId>
+            <artifactId>weka-dev</artifactId>
+            <version>3.9.6</version>
         </dependency>
     </dependencies>
 

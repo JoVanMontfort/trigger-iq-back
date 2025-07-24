@@ -18,6 +18,8 @@ public class Post implements Serializable {
     private OffsetDateTime date;
 
     private List<Comment> comments;
+    private String subreddit; // New field for subreddit
+    private String id; // New field for post ID
 
     public Post() {
     }
@@ -29,12 +31,16 @@ public class Post implements Serializable {
             @JsonProperty("sentiment") String sentiment,
             @JsonProperty("upvotes") int upvotes,
             @JsonProperty("date") OffsetDateTime date,
-            @JsonProperty("comments") List<Comment> comments) {
+            @JsonProperty("comments") List<Comment> comments,
+            @JsonProperty("subreddit") String subreddit, // New parameter for subreddit
+            @JsonProperty("id") String id) { // New parameter for post ID
         this.title = title;
         this.sentiment = sentiment;
         this.upvotes = upvotes;
         this.date = date;
         this.comments = comments;
+        this.subreddit = subreddit;
+        this.id = id;
     }
 
     // Getters and setters
@@ -88,8 +94,28 @@ public class Post implements Serializable {
         this.comments = comments;
     }
 
+    @JsonProperty("subreddit")
+    public String getSubreddit() {
+        return subreddit;
+    }
+
+    @JsonProperty("subreddit")
+    public void setSubreddit(String subreddit) {
+        this.subreddit = subreddit;
+    }
+
+    @JsonProperty("id")
+    public String getId() {
+        return id;
+    }
+
+    @JsonProperty("id")
+    public void setId(String id) {
+        this.id = id;
+    }
+
     @Override
     public String toString() {
-        return "[" + sentiment + "] " + title + " (Posted on: " + date.toString() + ")";
+        return "[" + sentiment + "] " + title + " (Posted on: " + date.toString() + ") from subreddit: " + subreddit;
     }
 }

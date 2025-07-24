@@ -136,3 +136,9 @@ reddit:
   username: ${REDDIT_USERNAME}
   password: ${REDDIT_PASSWORD}
   user-agent: ${REDDIT_USER_AGENT}
+
+minio:
+  endpoint: http://localhost:9000
+  accessKey: minioadmin
+  secretKey: minioadmin
+  bucket: reddit-archive

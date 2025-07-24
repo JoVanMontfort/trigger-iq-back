@@ -52,14 +52,17 @@ public class RedditFetcher {
             for (JsonNode post : posts) {
                 JsonNode data = post.path("data");
 
+                String postId = data.path("id").asText();
                 String title = data.path("title").asText();
-                int upvotes = data.path("score").asInt(); // ← Extract upvotes
+                int upvotes = data.path("score").asInt();
                 long createdUtc = data.path("created_utc").asLong();
                 OffsetDateTime date = Instant.ofEpochSecond(createdUtc).atOffset(ZoneOffset.UTC);
+                String id = data.path("id").asText(); // Reddit post ID
+                String subredditName = data.path("subreddit").asText(); // Extract subreddit name
 
                 List<Comment> comments = fetchComments(data.path("permalink").asText());
 
-                Post newPost = new Post(title, "Neutral", upvotes, date, comments);
+                Post newPost = new Post(title, "Neutral", upvotes, date, comments, subredditName, id);
                 results.add(newPost);
             }
         } catch (Exception e) {
@@ -90,8 +93,7 @@ public class RedditFetcher {
 
                 String text = data.path("body").asText();
                 double timestamp = data.path("created_utc").asDouble();
-                Instant instant = Instant.ofEpochSecond((long) timestamp);
-                OffsetDateTime date = instant.atOffset(ZoneOffset.UTC);
+                OffsetDateTime date = Instant.ofEpochSecond((long) timestamp).atOffset(ZoneOffset.UTC);
 
                 String author = data.path("author").asText();
                 int upvotes = data.path("score").asInt();
@@ -105,5 +107,4 @@ public class RedditFetcher {
 
         return comments;
     }
-
 }
