@@ -42,43 +42,67 @@ public class SentimentAnalyzer {
     }
 
     public String analyze(String text) {
-        if (text == null || text.isBlank()) return "Unknown";
-        CoreDocument doc = new CoreDocument(text);
-        pipeline.annotate(doc);
-        return doc.sentences().stream()
-                .map(CoreSentence::sentiment)
-                .findFirst()
-                .orElse("Unknown");
+        if (text == null || text.trim().isEmpty()) return "Unknown";
+
+        try {
+            CoreDocument doc = new CoreDocument(text.trim());  // Trim any leading/trailing spaces
+            pipeline.annotate(doc);
+
+            // Handle multiple sentences; can either return aggregated sentiment or just the first
+            return doc.sentences().stream()
+                    .map(CoreSentence::sentiment)
+                    .findFirst()
+                    .orElse("Unknown");  // Fallback to "Unknown" if no sentiment found
+        } catch (Exception e) {
+            logger.error("Sentiment analysis failed", e);
+            return "Unknown";
+        }
     }
 
     public void analyzeAndPrintAndStore(List<Post> posts) {
         if (posts == null || posts.isEmpty()) {
-            logger.warn("No posts available for sentiment analysis.");
+            logger.warn("❌ No posts available for sentiment analysis.");
             return;
         }
 
-        for (Post post : posts) {
+        // Process each post
+        posts.forEach(post -> {
             analyzePostAndComments(post);
             uploadPostToMinio(post);
-        }
+        });
 
+        // Perform analysis on sentiment-upvote correlation
         analyzeSentimentUpvoteCorrelation(posts);
         analyzeCommentSentimentUpvoteCorrelation(posts);
 
-        // Integrate multivariate analysis here
+        // 🧠 Multivariate correlation analysis
         multivariateSentimentAnalysisAnalysis(posts);
+
+        // 🧪 Weka ML Models
+        AlignedData data = extractAlignedCommentFeatures(posts);
+
+        // Validate feature alignment and process Weka models if valid
+        if (validateAlignedData("AlignedFeatures", data)) {
+            String wekaLinear = multivariateSentimentAnalysis.performWekaRegression(data.upvotes(), data.sentiments(), data.commentTexts());
+            String wekaRF = multivariateSentimentAnalysis.performWekaRandomForestRegression(
+                    data.sentiments(), data.lengths(), data.hasQuestions(), data.upvotes());
+
+            logger.info("➤ Weka Linear Regression Model:\n{}", wekaLinear);
+            logger.info("➤ Weka RandomForest Regression Model:\n{}", wekaRF);
+        } else {
+            logger.warn("❌ Aligned feature arrays are still mismatched. Skipping Weka training.");
+        }
     }
 
-    private void analyzePostAndComments(Post post) {
-        String postSentiment = analyze(post.getTitle());
-        post.setSentiment(postSentiment);
-        logSentiment(post.getTitle(), postSentiment, true);
+    private boolean validateAlignedData(String featureName, AlignedData data) {
+        boolean isValid = validateEqualLengths(featureName,
+                data.sentiments(), data.lengths(), data.hasQuestions(), data.upvotes(), data.commentTexts());
 
-        for (Comment comment : post.getComments()) {
-            String commentSentiment = analyze(comment.getText());
-            comment.setSentiment(commentSentiment);
-            logSentiment(comment.getText(), commentSentiment, false);
+        if (!isValid) {
+            logger.warn("❌ Mismatched array lengths detected for {}.", featureName);
         }
+
+        return isValid;
     }
 
     private void uploadPostToMinio(Post post) {
@@ -91,42 +115,67 @@ public class SentimentAnalyzer {
         }
     }
 
+    private void analyzePostAndComments(Post post) {
+        // Analyze post sentiment
+        String postSentiment = analyze(post.getTitle());
+        post.setSentiment(postSentiment);
+        logSentiment(post.getTitle(), postSentiment, true);
+
+        // Analyze each comment sentiment
+        post.getComments().forEach(comment -> {
+            String commentSentiment = analyze(comment.getText());
+            comment.setSentiment(commentSentiment);
+            logSentiment(comment.getText(), commentSentiment, false);
+        });
+    }
+
     private void analyzeSentimentUpvoteCorrelation(List<Post> posts) {
-        List<Double> filteredUpvotes = new ArrayList<>();
-        List<Double> filteredSentiment = new ArrayList<>();
+        List<Double> upvotes = new ArrayList<>();
+        List<Double> sentiments = new ArrayList<>();
 
         for (Post post : posts) {
             double upvote = post.getUpvotes();
             double sentimentScore = convertSentimentToNumerical(post.getSentiment());
 
-            // Filter out non-significant entries
-            if (upvote > 0 && sentimentScore != 0.0) {
-                filteredUpvotes.add(upvote);
-                filteredSentiment.add(sentimentScore);
+            if (isValidData(upvote, sentimentScore)) {
+                upvotes.add(upvote);
+                sentiments.add(sentimentScore);
             }
         }
 
-        if (filteredUpvotes.size() < 2) {
-            logger.warn("Not enough data for correlation/causality analysis after filtering.");
+        // Perform analysis only if enough data is available
+        if (upvotes.size() < 2) {
+            logger.warn("❌ Not enough data for correlation/causality analysis after filtering.");
             return;
         }
 
-        double[] upvotes = filteredUpvotes.stream().mapToDouble(Double::doubleValue).toArray();
-        double[] sentiment = filteredSentiment.stream().mapToDouble(Double::doubleValue).toArray();
+        // Convert lists to arrays
+        double[] upvoteArray = convertListToArray(upvotes);
+        double[] sentimentArray = convertListToArray(sentiments);
+        String[] commentTexts = extractCommentTexts(posts).toArray(new String[0]);
 
-        // Perform all three statistical methods
-        double correlation = sentimentUpvoteAnalysis.calculatePearsonCorrelation(upvotes, sentiment);
-        double[] causalityLinear = sentimentUpvoteAnalysis.performLinearRegression(upvotes, sentiment);
-        String wekaModel = multivariateSentimentAnalysis.performWekaRegression(upvotes, sentiment, extractCommentTexts(posts).toArray(new String[0]));
-        String wekaRandomForestModel = multivariateSentimentAnalysis.performWekaRandomForestRegression(sentiment, extractCommentLengths(posts), extractHasQuestionMarks(posts), upvotes);
+        logInputArraySizes(upvoteArray, sentimentArray, commentTexts);
+
+        // Calculate correlation and causality
+        double correlation = sentimentUpvoteAnalysis.calculatePearsonCorrelation(upvoteArray, sentimentArray);
+        double[] causalityLinear = sentimentUpvoteAnalysis.performLinearRegression(upvoteArray, sentimentArray);
+
+        String wekaModel = "⚠️ Skipped (array mismatch)";
+        String wekaRFModel = "⚠️ Skipped (array mismatch)";
+
+        if (validateEqualLengths("Weka Linear Regression", upvoteArray, sentimentArray, commentTexts)) {
+            wekaModel = multivariateSentimentAnalysis.performWekaRegression(upvoteArray, sentimentArray, commentTexts);
+        }
+
+        // Check Weka RandomForest model
+        double[] lengths = extractCommentLengths(posts);
+        double[] hasQuestionMarks = extractHasQuestionMarks(posts);
+        if (validateEqualLengths("Weka RandomForest", sentimentArray, lengths, hasQuestionMarks, upvoteArray)) {
+            wekaRFModel = multivariateSentimentAnalysis.performWekaRandomForestRegression(sentimentArray, lengths, hasQuestionMarks, upvoteArray);
+        }
 
         // Log results
-        logger.info("Sentiment-Upvote Analysis Summary (Filtered):");
-        logger.info("---------------------------------------------");
-        logger.info("➤ Pearson Correlation: {}", correlation);
-        logger.info("➤ Linear Regression Coefficients: {}", Arrays.toString(causalityLinear));
-        logger.info("➤ Weka Linear Regression Model:\n{}", wekaModel);
-        logger.info("➤ Weka RandomForest Regression Model:\n{}", wekaRandomForestModel);
+        logAnalysisSummary(correlation, causalityLinear, wekaModel, wekaRFModel);
     }
 
     private void analyzeCommentSentimentUpvoteCorrelation(List<Post> posts) {
@@ -134,36 +183,50 @@ public class SentimentAnalyzer {
         List<Double> commentSentiments = new ArrayList<>();
 
         for (Post post : posts) {
-            for (Comment comment : post.getComments()) {
+            post.getComments().forEach(comment -> {
                 double upvote = comment.getUpvotes();
                 double sentimentScore = convertSentimentToNumerical(comment.getSentiment());
 
-                if (upvote > 0 && sentimentScore != 0.0) {
+                if (isValidData(upvote, sentimentScore)) {
                     commentUpvotes.add(upvote);
                     commentSentiments.add(sentimentScore);
                 }
-            }
+            });
         }
 
+        // Perform analysis only if enough data is available
         if (commentUpvotes.size() < 2) {
-            logger.warn("Not enough comment data for correlation/causality analysis after filtering.");
+            logger.warn("❌ Not enough comment data for correlation/causality analysis after filtering.");
             return;
         }
 
-        double[] upvotes = commentUpvotes.stream().mapToDouble(Double::doubleValue).toArray();
-        double[] sentiment = commentSentiments.stream().mapToDouble(Double::doubleValue).toArray();
+        // Convert lists to arrays
+        double[] upvoteArray = convertListToArray(commentUpvotes);
+        double[] sentimentArray = convertListToArray(commentSentiments);
+        String[] commentTexts = extractCommentTexts(posts).toArray(new String[0]);
 
-        double correlation = sentimentUpvoteAnalysis.calculatePearsonCorrelation(upvotes, sentiment);
-        double[] causalityLinear = sentimentUpvoteAnalysis.performLinearRegression(upvotes, sentiment);
-        String wekaModel = multivariateSentimentAnalysis.performWekaRegression(upvotes, sentiment, extractCommentTexts(posts).toArray(new String[0]));
-        String wekaRandomForestModel = multivariateSentimentAnalysis.performWekaRandomForestRegression(sentiment, extractCommentLengths(posts), extractHasQuestionMarks(posts), upvotes);
+        logInputArraySizes(upvoteArray, sentimentArray, commentTexts);
 
-        logger.info("Comment Sentiment-Upvote Analysis Summary (Filtered):");
-        logger.info("-----------------------------------------------------");
-        logger.info("➤ Pearson Correlation: {}", correlation);
-        logger.info("➤ Linear Regression Coefficients: {}", Arrays.toString(causalityLinear));
-        logger.info("➤ Weka Linear Regression Model:\n{}", wekaModel);
-        logger.info("➤ Weka RandomForest Regression Model:\n{}", wekaRandomForestModel);
+        // Calculate correlation and causality
+        double correlation = sentimentUpvoteAnalysis.calculatePearsonCorrelation(upvoteArray, sentimentArray);
+        double[] causalityLinear = sentimentUpvoteAnalysis.performLinearRegression(upvoteArray, sentimentArray);
+
+        String wekaModel = "⚠️ Skipped (array mismatch)";
+        String wekaRFModel = "⚠️ Skipped (array mismatch)";
+
+        if (validateEqualLengths("Weka Linear Regression", upvoteArray, sentimentArray, commentTexts)) {
+            wekaModel = multivariateSentimentAnalysis.performWekaRegression(upvoteArray, sentimentArray, commentTexts);
+        }
+
+        // Check Weka RandomForest model
+        double[] lengths = extractCommentLengths(posts);
+        double[] hasQuestionMarks = extractHasQuestionMarks(posts);
+        if (validateEqualLengths("Weka RandomForest", sentimentArray, lengths, hasQuestionMarks, upvoteArray)) {
+            wekaRFModel = multivariateSentimentAnalysis.performWekaRandomForestRegression(sentimentArray, lengths, hasQuestionMarks, upvoteArray);
+        }
+
+        // Log results
+        logAnalysisSummary(correlation, causalityLinear, wekaModel, wekaRFModel);
     }
 
     private void multivariateSentimentAnalysisAnalysis(List<Post> posts) {
@@ -172,29 +235,136 @@ public class SentimentAnalyzer {
         List<String> commentTexts = new ArrayList<>();
 
         for (Post post : posts) {
-            for (Comment comment : post.getComments()) {
+            post.getComments().forEach(comment -> {
                 upvotes.add((double) comment.getUpvotes());
                 sentiments.add(convertSentimentToNumerical(comment.getSentiment()));
                 commentTexts.add(comment.getText());
-            }
+            });
         }
 
         if (upvotes.size() < 2) {
-            logger.warn("Not enough comment data for multivariate analysis.");
+            logger.warn("❌ Not enough comment data for multivariate analysis.");
             return;
         }
 
-        double[] upvoteArray = upvotes.stream().mapToDouble(Double::doubleValue).toArray();
-        double[] sentimentArray = sentiments.stream().mapToDouble(Double::doubleValue).toArray();
+        // Convert lists to arrays
+        double[] upvoteArray = convertListToArray(upvotes);
+        double[] sentimentArray = convertListToArray(sentiments);
         String[] commentTextArray = commentTexts.toArray(new String[0]);
 
-        // Perform Multivariate Regression
+        // Perform multivariate sentiment analysis
         MultivariateSentimentAnalysis.RegressionResult result = multivariateSentimentAnalysis.analyze(upvoteArray, sentimentArray, commentTextArray);
 
+        // Log results
         logger.info("Multivariate Sentiment Analysis Summary:");
         logger.info("-----------------------------------------");
         logger.info("➤ Regression Coefficients: {}", Arrays.toString(result.coefficients));
         logger.info("➤ R²: {}", result.rSquared);
+    }
+
+    private boolean isValidData(double upvote, double sentimentScore) {
+        return upvote > 0 && sentimentScore != 0.0;
+    }
+
+    private double[] convertListToArray(List<Double> list) {
+        return list.stream().mapToDouble(Double::doubleValue).toArray();
+    }
+
+    private void logInputArraySizes(double[] upvotes, double[] sentiment, String[] commentTexts) {
+        logger.info("Input Array Sizes:");
+        logger.info("➤ Upvotes: {}", upvotes.length);
+        logger.info("➤ Sentiment: {}", sentiment.length);
+        logger.info("➤ Comment Texts: {}", commentTexts.length);
+    }
+
+    private void logAnalysisSummary(double correlation, double[] causalityLinear, String wekaModel, String wekaRFModel) {
+        logger.info("Sentiment-Upvote Analysis Summary:");
+        logger.info("-----------------------------------");
+        logger.info("➤ Pearson Correlation: {}", correlation);
+        logger.info("➤ Linear Regression Coefficients: {}", Arrays.toString(causalityLinear));
+        logger.info("➤ Weka Linear Regression Model:\n{}", wekaModel);
+        logger.info("➤ Weka RandomForest Regression Model:\n{}", wekaRFModel);
+    }
+
+    private boolean validateEqualLengths(String label, Object... arrays) {
+        if (arrays == null || arrays.length == 0) {
+            logger.warn("⚠️ No arrays provided for length validation: {}", label);
+            return false;
+        }
+
+        int expectedLength = -1;
+
+        for (Object arr : arrays) {
+            if (arr == null) {
+                logger.warn("⚠️ Null array encountered in '{}'", label);
+                return false;
+            }
+
+            int length = -1;
+            if (arr instanceof double[]) length = ((double[]) arr).length;
+            else if (arr instanceof int[]) length = ((int[]) arr).length;
+            else if (arr instanceof float[]) length = ((float[]) arr).length;
+            else if (arr instanceof String[]) length = ((String[]) arr).length;
+            else if (arr instanceof Object[]) length = ((Object[]) arr).length;
+            else {
+                logger.warn("⚠️ Unsupported array type in '{}': {}", label, arr.getClass().getSimpleName());
+                return false;
+            }
+
+            if (expectedLength == -1) {
+                expectedLength = length;
+            } else if (length != expectedLength) {
+                logger.warn("⚠️ Length mismatch in '{}': Expected {}, but found {}", label, expectedLength, length);
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    public record AlignedData(
+            double[] sentiments,
+            double[] lengths,
+            double[] hasQuestions,
+            double[] upvotes,
+            String[] commentTexts
+    ) {
+    }
+
+    public AlignedData extractAlignedCommentFeatures(List<Post> posts) {
+        List<Double> sentiments = new ArrayList<>();
+        List<Double> lengths = new ArrayList<>();
+        List<Double> hasQuestions = new ArrayList<>();
+        List<Double> upvotes = new ArrayList<>();
+        List<String> texts = new ArrayList<>();
+
+        for (Post post : posts) {
+            for (Comment comment : post.getComments()) {
+                double sentiment = convertSentimentToNumerical(comment.getSentiment());
+                if (sentiment == 0.0 || comment.getUpvotes() <= 0) continue;
+
+                String text = comment.getText();
+                if (text == null || text.isBlank()) continue;
+
+                sentiments.add(sentiment);
+                lengths.add((double) text.length());
+                hasQuestions.add(text.contains("?") ? 1.0 : 0.0);
+                upvotes.add((double) comment.getUpvotes());
+                texts.add(text);
+            }
+        }
+
+        return new AlignedData(
+                toDoubleArray(sentiments),
+                toDoubleArray(lengths),
+                toDoubleArray(hasQuestions),
+                toDoubleArray(upvotes),
+                texts.toArray(new String[0])
+        );
+    }
+
+    private double[] toDoubleArray(List<Double> list) {
+        return list.stream().mapToDouble(Double::doubleValue).toArray();
     }
 
     private double convertSentimentToNumerical(String sentiment) {
