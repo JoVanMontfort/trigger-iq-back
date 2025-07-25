@@ -4,8 +4,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.math3.stat.regression.OLSMultipleLinearRegression;
 import org.springframework.stereotype.Component;
 import weka.attributeSelection.AttributeSelection;
-import weka.attributeSelection.InfoGainAttributeEval;
 import weka.attributeSelection.Ranker;
+import weka.attributeSelection.ReliefFAttributeEval;
 import weka.classifiers.Evaluation;
 import weka.classifiers.functions.LinearRegression;
 import weka.classifiers.trees.RandomForest;
@@ -73,11 +73,11 @@ public class MultivariateSentimentAnalysis {
      * Perform linear regression using Weka.
      */
     public String performWekaRegression(double[] upvotes, double[] sentiment, String[] commentTexts) {
-        if (upvotes.length != sentiment.length || sentiment.length != commentTexts.length) {
-            return "Error: Array lengths must match.";
-        }
-
         try {
+            if (upvotes.length != sentiment.length || sentiment.length != commentTexts.length) {
+                return "⚠️ Weka Linear Regression Error: Array lengths must match.\n";
+            }
+
             // Create features and instances for Weka
             Instances dataSet = createInstances(upvotes, sentiment, commentTexts);
 
@@ -98,20 +98,25 @@ public class MultivariateSentimentAnalysis {
             // Return the Weka model and R² value
             return "__Weka Linear Regression Model__\n" + model.toString() + "\nR²: " + rSquared;
         } catch (Exception e) {
-            // Handle exceptions and log error message
             log.error("Error performing Weka regression: {}", e.getMessage(), e);
-            return "Error performing Weka regression: " + e.getMessage();
+            return "⚠️ Error performing Weka regression: " + e.getMessage() + "\n";
         }
     }
 
     /**
-     * Perform randomforest using Weka.
+     * Perform RandomForest regression using Weka.
      */
     public String performWekaRandomForestRegression(double[] sentimentScores,
                                                     double[] commentLengths,
                                                     double[] hasQuestionMarks,
                                                     double[] upvotes) {
         try {
+            if (sentimentScores.length != commentLengths.length ||
+                    commentLengths.length != hasQuestionMarks.length ||
+                    hasQuestionMarks.length != upvotes.length) {
+                return "⚠️ Weka RandomForest Error: Array lengths must match.\n";
+            }
+
             // Step 1: Define attributes
             ArrayList<Attribute> attributes = new ArrayList<>();
             attributes.add(new Attribute("sentimentScore"));
@@ -142,12 +147,12 @@ public class MultivariateSentimentAnalysis {
             Evaluation eval = new Evaluation(dataset);
             eval.crossValidateModel(rf, dataset, 10, new Random(1));
 
-            // Step 5: Feature importance using InfoGain
+            // Step 5: Feature importance using ReliefF (for numeric class)
             AttributeSelection attrSel = new AttributeSelection();
-            InfoGainAttributeEval infoGainEval = new InfoGainAttributeEval();
+            ReliefFAttributeEval reliefF = new ReliefFAttributeEval();  // FIXED HERE
             Ranker ranker = new Ranker();
 
-            attrSel.setEvaluator(infoGainEval);
+            attrSel.setEvaluator(reliefF);
             attrSel.setSearch(ranker);
             attrSel.SelectAttributes(dataset);
 
@@ -162,7 +167,7 @@ public class MultivariateSentimentAnalysis {
             result.append("🌲 RandomForest Model:\n")
                     .append(rf.toString()).append("\n");
 
-            result.append("🔥 Feature Importances (InfoGain):\n");
+            result.append("🔥 Feature Importances (ReliefF):\n");
             for (double[] attr : rankedAttributes) {
                 int index = (int) attr[0];
                 double score = attr[1];
@@ -172,7 +177,8 @@ public class MultivariateSentimentAnalysis {
             return result.toString();
 
         } catch (Exception e) {
-            return "RandomForest training failed: " + e.getMessage();
+            log.error("Error performing Weka RandomForest regression: {}", e.getMessage(), e);
+            return "⚠️ RandomForest training failed: " + e.getMessage() + "\n";
         }
     }
 
