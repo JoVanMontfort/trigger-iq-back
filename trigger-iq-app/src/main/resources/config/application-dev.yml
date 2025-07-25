@@ -142,3 +142,9 @@ minio:
   accessKey: minioadmin
   secretKey: minioadmin
   bucket: reddit-archive
+
+trainer:
+  weka:
+    maxWords: 1500
+    tfTransform: true
+    idfTransform: true

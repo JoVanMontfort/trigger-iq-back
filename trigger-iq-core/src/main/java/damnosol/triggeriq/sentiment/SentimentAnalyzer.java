@@ -11,6 +11,8 @@ import org.fusesource.jansi.Ansi;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import weka.classifiers.functions.LinearRegression;
+import weka.core.Instances;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -25,11 +27,13 @@ public class SentimentAnalyzer {
     private final StanfordCoreNLP pipeline;
     private final ObjectMapper mapper;
     private final MinioStorageService minioStorageService;
+    private final CommentTextWekaTrainer commentTextWekaTrainer;
     private final SentimentUpvoteAnalysis sentimentUpvoteAnalysis;
     private final MultivariateSentimentAnalysis multivariateSentimentAnalysis;
 
     public SentimentAnalyzer(ObjectMapper mapper,
                              MinioStorageService minioStorageService,
+                             CommentTextWekaTrainer commentTextWekaTrainer,
                              SentimentUpvoteAnalysis sentimentUpvoteAnalysis,
                              MultivariateSentimentAnalysis multivariateSentimentAnalysis) {
         Properties props = new Properties();
@@ -37,6 +41,7 @@ public class SentimentAnalyzer {
         this.pipeline = new StanfordCoreNLP(props);
         this.mapper = mapper;
         this.minioStorageService = minioStorageService;
+        this.commentTextWekaTrainer = commentTextWekaTrainer;
         this.sentimentUpvoteAnalysis = sentimentUpvoteAnalysis;
         this.multivariateSentimentAnalysis = multivariateSentimentAnalysis;
     }
@@ -60,37 +65,90 @@ public class SentimentAnalyzer {
     }
 
     public void analyzeAndPrintAndStore(List<Post> posts) {
+        // Check if the posts list is empty or null
         if (posts == null || posts.isEmpty()) {
             logger.warn("❌ No posts available for sentiment analysis.");
             return;
         }
 
-        // Process each post
+        // Step 1: Process each post
+        processPosts(posts);
+
+        // Step 2: Perform various analyses
+        analyzeCorrelations(posts);
+
+        // Step 3: Perform multivariate sentiment analysis
+        performMultivariateAnalysis(posts);
+
+        // Step 4: Extract aligned data for Weka ML models
+        AlignedData data = extractAlignedCommentFeatures(posts);
+
+        // Step 5: Validate aligned data before using it for model training
+        if (validateAlignedData("AlignedFeatures", data)) {
+            // Step 5.1: Perform Weka Regression models
+            performWekaModelTraining(data);
+        } else {
+            logger.warn("❌ Aligned feature arrays are still mismatched. Skipping Weka training.");
+        }
+
+        // Step 6: Train using raw comment text as a feature
+        trainOnCommentText(data.commentTexts(), data.upvotes());
+    }
+
+    /**
+     * Helper method to process each post (analyze comments and upload)
+     */
+    private void processPosts(List<Post> posts) {
         posts.forEach(post -> {
             analyzePostAndComments(post);
             uploadPostToMinio(post);
         });
+    }
 
-        // Perform analysis on sentiment-upvote correlation
+    /**
+     * Helper method to perform sentiment-upvote and comment-sentiment-upvote correlations
+     */
+    private void analyzeCorrelations(List<Post> posts) {
         analyzeSentimentUpvoteCorrelation(posts);
         analyzeCommentSentimentUpvoteCorrelation(posts);
+    }
 
-        // 🧠 Multivariate correlation analysis
+    /**
+     * Helper method for multivariate sentiment analysis
+     */
+    private void performMultivariateAnalysis(List<Post> posts) {
         multivariateSentimentAnalysisAnalysis(posts);
+    }
 
-        // 🧪 Weka ML Models
-        AlignedData data = extractAlignedCommentFeatures(posts);
-
-        // Validate feature alignment and process Weka models if valid
-        if (validateAlignedData("AlignedFeatures", data)) {
+    /**
+     * Helper method to perform Weka model training (Linear Regression and Random Forest)
+     */
+    private void performWekaModelTraining(AlignedData data) {
+        try {
             String wekaLinear = multivariateSentimentAnalysis.performWekaRegression(data.upvotes(), data.sentiments(), data.commentTexts());
             String wekaRF = multivariateSentimentAnalysis.performWekaRandomForestRegression(
                     data.sentiments(), data.lengths(), data.hasQuestions(), data.upvotes());
 
             logger.info("➤ Weka Linear Regression Model:\n{}", wekaLinear);
             logger.info("➤ Weka RandomForest Regression Model:\n{}", wekaRF);
-        } else {
-            logger.warn("❌ Aligned feature arrays are still mismatched. Skipping Weka training.");
+        } catch (Exception e) {
+            logger.error("❌ Error during Weka model training", e);
+        }
+    }
+
+    /**
+     * Method to train the model using comment text as a feature
+     */
+    private void trainOnCommentText(String[] commentTexts, double[] upvotes) {
+        try {
+            Instances data = commentTextWekaTrainer.convertTextToInstances(commentTexts, upvotes);
+            // Assuming you are using a LinearRegression model for this part
+            LinearRegression model = new LinearRegression();
+            model.buildClassifier(data);
+
+            logger.info("📘 Text-Based Linear Regression Model:\n{}", model.toString());
+        } catch (Exception e) {
+            logger.error("❌ Error training text-based Weka model: ", e);
         }
     }
 
