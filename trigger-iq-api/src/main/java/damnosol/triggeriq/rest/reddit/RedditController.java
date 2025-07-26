@@ -1,7 +1,11 @@
 package damnosol.triggeriq.rest.reddit;
 
+import damnosol.triggeriq.dto.SentimentAnalysisResult;
 import damnosol.triggeriq.sentiment.reddit.Post;
 import damnosol.triggeriq.sentiment.reddit.RedditFetcher;
+import damnosol.triggeriq.sentiment.reddit.SentimentAnalysisService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,7 +20,10 @@ import java.util.List;
 @RequestMapping("/api/reddit")
 public class RedditController {
 
+    private static final Logger logger = LoggerFactory.getLogger(RedditController.class);
+
     private final RedditFetcher redditFetcher;
+    private final SentimentAnalysisService sentimentService;
 
     @Value("${reddit.default.limit}")
     private int defaultLimit;
@@ -36,12 +43,13 @@ public class RedditController {
     @Value("${reddit.default.date-to}")
     private String defaultDateTo;
 
-    public RedditController(RedditFetcher redditFetcher) {
+    public RedditController(RedditFetcher redditFetcher, SentimentAnalysisService sentimentService) {
         this.redditFetcher = redditFetcher;
+        this.sentimentService = sentimentService;
     }
 
-    @GetMapping("/posts")
-    public List<Post> fetchFilteredPosts(
+    @GetMapping("/analyze")
+    public SentimentAnalysisResult fetchAndAnalyzePosts(
             @RequestParam String subreddit,
             @RequestParam(required = false) Integer limit,
             @RequestParam(required = false) List<String> keywords,
@@ -50,7 +58,7 @@ public class RedditController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime dateTo,
             @RequestParam(required = false) List<String> authors
     ) {
-        return redditFetcher.fetchTopPostsFiltered(
+        List<Post> fetched = redditFetcher.fetchTopPostsFiltered(
                 subreddit,
                 limit != null ? limit : defaultLimit,
                 keywords != null ? keywords : List.of(defaultKeywords.split(",")),
@@ -59,5 +67,39 @@ public class RedditController {
                 dateTo != null ? dateTo : OffsetDateTime.parse(defaultDateTo),
                 authors != null ? authors : List.of(defaultAuthors.split(","))
         );
+
+        return sentimentService.analyze(fetched); // Apply sentiment analysis after filtering
     }
+
+//    @GetMapping("/analyze")
+//    public SentimentAnalysisResult fetchAndAnalyzePosts(
+//            @RequestParam String subreddit,
+//            @RequestParam(required = false) Integer limit,
+//            @RequestParam(required = false) List<String> keywords,
+//            @RequestParam(required = false) Integer minUpvotes,
+//            @RequestParam(required = false) String dateFrom,
+//            @RequestParam(required = false) String dateTo,
+//            @RequestParam(required = false) List<String> authors
+//    ) {
+//        // Convert String to OffsetDateTime manually
+//        OffsetDateTime parsedDateFrom = (dateFrom != null) ? OffsetDateTime.parse(dateFrom, DateTimeFormatter.ISO_OFFSET_DATE_TIME) : OffsetDateTime.parse(defaultDateFrom);
+//        OffsetDateTime parsedDateTo = (dateTo != null) ? OffsetDateTime.parse(dateTo, DateTimeFormatter.ISO_OFFSET_DATE_TIME) : OffsetDateTime.parse(defaultDateTo);
+//
+//        logger.debug("Date From: {}", parsedDateFrom);
+//        logger.debug("Date To: {}", parsedDateTo);
+//
+//        // Proceed with processing the request
+//        List<Post> fetched = redditFetcher.fetchTopPostsFiltered(
+//                subreddit,
+//                limit != null ? limit : defaultLimit,
+//                keywords != null ? keywords : List.of(defaultKeywords.split(",")),
+//                minUpvotes != null ? minUpvotes : defaultMinUpvotes,
+//                parsedDateFrom,
+//                parsedDateTo,
+//                authors != null ? authors : List.of(defaultAuthors.split(","))
+//        );
+//
+//        return sentimentService.analyze(fetched); // Apply sentiment analysis after filtering
+//    }
+
 }

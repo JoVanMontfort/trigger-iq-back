@@ -3,6 +3,7 @@ package damnosol.triggeriq.sentiment;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import damnosol.triggeriq.sentiment.reddit.Comment;
 import damnosol.triggeriq.sentiment.reddit.Post;
+import damnosol.triggeriq.sentiment.result.AnalysisResult;
 import damnosol.triggeriq.sentiment.services.storage.MinioStorageService;
 import edu.stanford.nlp.pipeline.CoreDocument;
 import edu.stanford.nlp.pipeline.CoreSentence;
@@ -11,18 +12,19 @@ import org.fusesource.jansi.Ansi;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import weka.attributeSelection.AttributeSelection;
+import weka.attributeSelection.InfoGainAttributeEval;
+import weka.attributeSelection.Ranker;
 import weka.classifiers.functions.LinearRegression;
 import weka.core.Instances;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Properties;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Component
-public class SentimentAnalyzer {
+public class RedditPostsSentimentAnalyzer {
 
-    private static final Logger logger = LoggerFactory.getLogger(SentimentAnalyzer.class);
+    private static final Logger logger = LoggerFactory.getLogger(RedditPostsSentimentAnalyzer.class);
 
     private final StanfordCoreNLP pipeline;
     private final ObjectMapper mapper;
@@ -31,13 +33,13 @@ public class SentimentAnalyzer {
     private final SentimentUpvoteAnalysis sentimentUpvoteAnalysis;
     private final MultivariateSentimentAnalysis multivariateSentimentAnalysis;
 
-    public SentimentAnalyzer(ObjectMapper mapper,
-                             MinioStorageService minioStorageService,
-                             CommentTextWekaTrainer commentTextWekaTrainer,
-                             SentimentUpvoteAnalysis sentimentUpvoteAnalysis,
-                             MultivariateSentimentAnalysis multivariateSentimentAnalysis) {
+    public RedditPostsSentimentAnalyzer(ObjectMapper mapper,
+                                        MinioStorageService minioStorageService,
+                                        CommentTextWekaTrainer commentTextWekaTrainer,
+                                        SentimentUpvoteAnalysis sentimentUpvoteAnalysis,
+                                        MultivariateSentimentAnalysis multivariateSentimentAnalysis) {
         Properties props = new Properties();
-        props.setProperty("annotators", "tokenize,ssplit,pos,parse,sentiment");
+        props.setProperty("annotators", "tokenize, ssplit, pos, lemma, parse, sentiment");
         this.pipeline = new StanfordCoreNLP(props);
         this.mapper = mapper;
         this.minioStorageService = minioStorageService;
@@ -46,35 +48,136 @@ public class SentimentAnalyzer {
         this.multivariateSentimentAnalysis = multivariateSentimentAnalysis;
     }
 
-    public void analyze(List<Post> posts) {
-        // Check if the posts list is empty or null
+    public AnalysisResult analyze(List<Post> posts) {
         if (posts == null || posts.isEmpty()) {
             logger.warn("❌ No posts available for sentiment analysis.");
-            return;
+            return AnalysisResult.builder()
+                    .posts(List.of())
+                    .trained(false)
+                    .modelUsed("N/A")
+                    .rSquared(0.0)
+                    .featureImportance(Map.of())
+                    .predictionSamples(List.of("No data available."))
+                    .build();
         }
 
-        // Step 1: Process each post
+        // Step 1: Preprocess posts (e.g., sentiment scoring)
         processPosts(posts);
 
-        // Step 2: Perform various analyses
+        // Step 2: Correlation & analysis (optional, but might feed into model features)
         analyzeCorrelations(posts);
-
-        // Step 3: Perform multivariate sentiment analysis
         performMultivariateAnalysis(posts);
 
-        // Step 4: Extract aligned data for Weka ML models
+        // Step 3: Prepare data for ML
         AlignedData data = extractAlignedCommentFeatures(posts);
 
-        // Step 5: Validate aligned data before using it for model training
+        boolean trained = false;
+        String modelUsed = "N/A";
+        double rSquared = 0.0;
+        Map<String, Double> featureImportance = Map.of();
+        List<String> predictionSamples = List.of();
+
         if (validateAlignedData("AlignedFeatures", data)) {
-            // Step 5.1: Perform Weka Regression models
+            modelUsed = "Weka";
+            trained = true;
             performWekaModelTraining(data);
+            rSquared = calculateRSquared(data);
+            featureImportance = extractFeatureImportance(data);
+            predictionSamples = getPredictionSamples(posts);
         } else {
-            logger.warn("❌ Aligned feature arrays are still mismatched. Skipping Weka training.");
+            logger.warn("⚠️ Skipping training — invalid aligned feature arrays.");
         }
 
-        // Step 6: Train using raw comment text as a feature
+        // Optional: train using comment text only
         trainOnCommentText(data.commentTexts(), data.upvotes());
+
+        return AnalysisResult.builder()
+                .posts(posts)
+                .trained(trained)
+                .modelUsed(modelUsed)
+                .rSquared(rSquared)
+                .featureImportance(featureImportance)
+                .predictionSamples(predictionSamples)
+                .build();
+    }
+
+    private double calculateRSquared(AlignedData data) {
+        double[] actual = data.upvotes();
+        double[] predicted = new double[actual.length];
+
+        // Mock: Predict using average sentiment-based guess (replace with actual model output)
+        double mean = Arrays.stream(actual).average().orElse(0.0);
+        Arrays.fill(predicted, mean);
+
+        double ssTotal = 0.0;
+        double ssResidual = 0.0;
+        for (int i = 0; i < actual.length; i++) {
+            ssTotal += Math.pow(actual[i] - mean, 2);
+            ssResidual += Math.pow(actual[i] - predicted[i], 2);
+        }
+
+        return ssTotal == 0 ? 0.0 : 1 - (ssResidual / ssTotal);
+    }
+
+    private Map<String, Double> extractFeatureImportance(AlignedData data) {
+        // Mock: Use dummy importance values. Replace with actual Weka output.
+        Map<String, Double> importance = new LinkedHashMap<>();
+        importance.put("length", 0.5);
+        importance.put("sentiment", 0.35);
+        importance.put("containsQuestionMark", 0.15);
+        return importance;
+    }
+
+    private Map<String, Double> extractFeatureImportanceFromLinearRegression(Instances trainingData) throws Exception {
+        LinearRegression model = new LinearRegression();
+        model.buildClassifier(trainingData);
+
+        double[] coefficients = model.coefficients(); // includes intercept at end
+        Map<String, Double> featureImportance = new LinkedHashMap<>();
+
+        for (int i = 0; i < trainingData.numAttributes() - 1; i++) { // skip class
+            String attrName = trainingData.attribute(i).name();
+            featureImportance.put(attrName, coefficients[i]);
+        }
+
+        return featureImportance;
+    }
+
+    private Map<String, Double> extractFeatureImportanceWithInfoGain(Instances data) throws Exception {
+        AttributeSelection selector = new AttributeSelection();
+        InfoGainAttributeEval evaluator = new InfoGainAttributeEval();
+        Ranker ranker = new Ranker();
+
+        selector.setEvaluator(evaluator);
+        selector.setSearch(ranker);
+        selector.SelectAttributes(data);
+
+        Map<String, Double> featureImportance = new LinkedHashMap<>();
+        for (int i = 0; i < data.numAttributes() - 1; i++) {
+            String name = data.attribute(i).name();
+            double score = evaluator.evaluateAttribute(i);
+            featureImportance.put(name, score);
+        }
+
+        return featureImportance.entrySet().stream()
+                .sorted(Map.Entry.<String, Double>comparingByValue().reversed())
+                .limit(10)
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey, Map.Entry::getValue,
+                        (a, b) -> b, LinkedHashMap::new));
+    }
+
+    private List<String> getPredictionSamples(List<Post> posts) {
+        return posts.stream()
+                .limit(3)
+                .map(post -> {
+                    String comment = post.getTopComment();
+                    int length = comment != null ? comment.length() : 0;
+                    double mockScore = length * 0.01; // Mock predicted score
+                    return String.format("Comment: \"%s\" → Predicted Upvotes: %.2f",
+                            comment != null ? comment : "[No comment]", mockScore);
+                })
+                .collect(Collectors.toList());
     }
 
     /**
@@ -436,6 +539,24 @@ public class SentimentAnalyzer {
                 return 0.0;
             default:
                 return 0.0;
+        }
+    }
+
+    private double convertSentimentToNumericalExpanded(String sentiment) {
+        if (sentiment == null) return 0.0;
+        switch (sentiment.toLowerCase()) {
+            case "very positive":
+                return 1.0;
+            case "positive":
+                return 0.5;
+            case "neutral":
+                return 0.0;
+            case "negative":
+                return -0.5;
+            case "very negative":
+                return -1.0;
+            default:
+                return 0.0; // Default to neutral if unrecognized
         }
     }
 

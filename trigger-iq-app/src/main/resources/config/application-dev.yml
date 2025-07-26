@@ -20,6 +20,7 @@ logging:
     org.hibernate.SQL: WARN
     damnosol.triggeriq.app: INFO
     damnosol.triggeriq.sentiment: INFO
+    damnosol.triggeriq.rest.reddit: INFO
 
 spring:
   devtools:
@@ -136,13 +137,13 @@ reddit:
   username: ${REDDIT_USERNAME}
   password: ${REDDIT_PASSWORD}
   user-agent: ${REDDIT_USER_AGENT}
-  defaults:
+  default:
     limit: 10
-    min-upvotes: 0
-    keywords: [ ]
-    authors: [ ]
-    date-from: 2000-01-01T00:00:00Z
-    date-to: 2100-01-01T00:00:00Z
+    min-upvotes: 5
+    keywords: Trump,Biden
+    authors: elonmusk,No-Economics9519
+    date-from: "2024-01-01T00:00:00Z"
+    date-to: "2025-12-31T23:59:59Z"
 
 minio:
   endpoint: http://localhost:9000

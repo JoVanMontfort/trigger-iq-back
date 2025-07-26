@@ -27,7 +27,7 @@ public class Comment implements Serializable {
             @JsonProperty("sentiment") String sentiment,
             @JsonProperty("upvotes") int upvotes,
             @JsonProperty("author") String author,
-            @JsonProperty("date") OffsetDateTime date) {
+            @JsonProperty("date") OffsetDateTime date) {  // Include sentimentScore in constructor
         this.text = text;
         this.sentiment = sentiment;
         this.upvotes = upvotes;
@@ -84,6 +84,29 @@ public class Comment implements Serializable {
     @JsonProperty("date")
     public void setDate(OffsetDateTime date) {
         this.date = date;
+    }
+
+    /**
+     * Converts sentiment string to a numerical value.
+     *
+     * @return A numerical sentiment score.
+     */
+    public double getSentimentScore() {
+        if (sentiment == null) return 0.0;
+        switch (sentiment.toLowerCase()) {
+            case "very positive":
+                return 1.0;
+            case "positive":
+                return 0.5;
+            case "neutral":
+                return 0.0;
+            case "negative":
+                return -0.5;
+            case "very negative":
+                return -1.0;
+            default:
+                return 0.0; // Default to neutral if unrecognized
+        }
     }
 
     @Override

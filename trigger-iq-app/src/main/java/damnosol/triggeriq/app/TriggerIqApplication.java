@@ -5,7 +5,10 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.ComponentScan;
 
 @SpringBootApplication
-@ComponentScan(basePackages = {"damnosol.triggeriq.sentiment.reddit", "damnosol.triggeriq.sentiment", "damnosol.triggeriq.config"})
+@ComponentScan(basePackages = {"damnosol.triggeriq.sentiment.reddit",
+        "damnosol.triggeriq.sentiment",
+        "damnosol.triggeriq.config",
+        "damnosol.triggeriq.rest.reddit"})
 public class TriggerIqApplication {
 
     public static void main(String[] args) {

@@ -7,6 +7,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.io.Serializable;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public class Post implements Serializable {
 
@@ -112,6 +113,65 @@ public class Post implements Serializable {
     @JsonProperty("id")
     public void setId(String id) {
         this.id = id;
+    }
+
+    /**
+     * Get sentiment score for the post. Converts sentiment string to a numerical value.
+     *
+     * @return A numerical sentiment score.
+     */
+    public double getSentimentScore() {
+        switch (sentiment.toLowerCase()) {
+            case "positive":
+                return 1.0;
+            case "neutral":
+                return 0.0;
+            case "negative":
+                return -1.0;
+            default:
+                return 0.0;  // Default to neutral if sentiment is unknown
+        }
+    }
+
+    /**
+     * Get the creation date of the post.
+     *
+     * @return The date the post was created.
+     */
+    public OffsetDateTime getCreationDate() {
+        return this.date;
+    }
+
+    /**
+     * Get the author of the post. Assumes that the author is the most upvoted comment's author.
+     *
+     * @return The author of the post.
+     */
+    public String getAuthor() {
+        if (comments != null && !comments.isEmpty()) {
+            // Return the author of the comment with the highest upvotes
+            Optional<Comment> topComment = comments.stream()
+                    .filter(c -> c.getText() != null && !c.getText().isBlank())
+                    .max((a, b) -> Integer.compare(a.getUpvotes(), b.getUpvotes()));
+
+            return topComment.map(Comment::getAuthor).orElse(null);
+        }
+        return null;  // No comments, no author
+    }
+
+    /**
+     * Get the top comment for the post, based on most upvotes.
+     *
+     * @return The text of the top comment.
+     */
+    public String getTopComment() {
+        if (comments == null || comments.isEmpty()) return null;
+
+        return comments.stream()
+                .filter(c -> c.getText() != null && !c.getText().isBlank())
+                .max((a, b) -> Integer.compare(a.getUpvotes(), b.getUpvotes()))
+                .map(Comment::getText)
+                .orElse(null);
     }
 
     @Override
