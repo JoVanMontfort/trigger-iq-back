@@ -1,6 +1,7 @@
 package damnosol.triggeriq.rest.reddit;
 
 import damnosol.triggeriq.dto.SentimentAnalysisResult;
+import damnosol.triggeriq.sentiment.reddit.Comment;
 import damnosol.triggeriq.sentiment.reddit.Post;
 import damnosol.triggeriq.sentiment.reddit.RedditFetcher;
 import damnosol.triggeriq.sentiment.reddit.SentimentAnalysisService;
@@ -68,38 +69,33 @@ public class RedditController {
                 authors != null ? authors : List.of(defaultAuthors.split(","))
         );
 
+        logger.info("✅ Fetched {} post(s) from subreddit: r/{}", fetched.size(), subreddit);
+        for (Post post : fetched) {
+            logger.info("📌 [{}] \"{}\" | Upvotes: {} | Subreddit: {} | Date: {} | ID: {}",
+                    post.getSentiment(),
+                    post.getTitle(),
+                    post.getUpvotes(),
+                    post.getSubreddit(),
+                    post.getDate(),
+                    post.getId());
+
+            for (Comment comment : post.getComments()) {
+                String text = comment.getText();
+                if (text != null && text.length() > 100) {
+                    text = text.substring(0, 100) + "...";
+                }
+
+                logger.info("    🗨️ Comment by {} | Sentiment: {} | Upvotes: {} | Text: {}",
+                        comment.getAuthor(),
+                        comment.getSentiment(),
+                        comment.getUpvotes(),
+                        text != null ? text : "(no text)");
+            }
+
+            logger.info("--------------------------------------------------");
+        }
+
         return sentimentService.analyze(fetched); // Apply sentiment analysis after filtering
     }
-
-//    @GetMapping("/analyze")
-//    public SentimentAnalysisResult fetchAndAnalyzePosts(
-//            @RequestParam String subreddit,
-//            @RequestParam(required = false) Integer limit,
-//            @RequestParam(required = false) List<String> keywords,
-//            @RequestParam(required = false) Integer minUpvotes,
-//            @RequestParam(required = false) String dateFrom,
-//            @RequestParam(required = false) String dateTo,
-//            @RequestParam(required = false) List<String> authors
-//    ) {
-//        // Convert String to OffsetDateTime manually
-//        OffsetDateTime parsedDateFrom = (dateFrom != null) ? OffsetDateTime.parse(dateFrom, DateTimeFormatter.ISO_OFFSET_DATE_TIME) : OffsetDateTime.parse(defaultDateFrom);
-//        OffsetDateTime parsedDateTo = (dateTo != null) ? OffsetDateTime.parse(dateTo, DateTimeFormatter.ISO_OFFSET_DATE_TIME) : OffsetDateTime.parse(defaultDateTo);
-//
-//        logger.debug("Date From: {}", parsedDateFrom);
-//        logger.debug("Date To: {}", parsedDateTo);
-//
-//        // Proceed with processing the request
-//        List<Post> fetched = redditFetcher.fetchTopPostsFiltered(
-//                subreddit,
-//                limit != null ? limit : defaultLimit,
-//                keywords != null ? keywords : List.of(defaultKeywords.split(",")),
-//                minUpvotes != null ? minUpvotes : defaultMinUpvotes,
-//                parsedDateFrom,
-//                parsedDateTo,
-//                authors != null ? authors : List.of(defaultAuthors.split(","))
-//        );
-//
-//        return sentimentService.analyze(fetched); // Apply sentiment analysis after filtering
-//    }
 
 }

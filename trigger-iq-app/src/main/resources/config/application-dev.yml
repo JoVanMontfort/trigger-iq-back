@@ -19,7 +19,7 @@ logging:
     tech.jhipster: WARN
     org.hibernate.SQL: WARN
     damnosol.triggeriq.app: INFO
-    damnosol.triggeriq.sentiment: INFO
+    damnosol.triggeriq.sentiment: DEBUG
     damnosol.triggeriq.rest.reddit: INFO
 
 spring:

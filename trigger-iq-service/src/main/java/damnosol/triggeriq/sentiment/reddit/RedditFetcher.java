@@ -63,6 +63,29 @@ public class RedditFetcher {
             String permalink = "/r/" + subreddit + "/comments/" + post.getId();
             List<Comment> comments = fetchComments(permalink);
             post.setComments(comments);
+
+            logger.info("📌 Post: [{}] \"{}\" | Upvotes: {} | Subreddit: {} | Date: {} | ID: {}",
+                    post.getSentiment(),
+                    post.getTitle(),
+                    post.getUpvotes(),
+                    post.getSubreddit(),
+                    post.getDate(),
+                    post.getId());
+
+            for (Comment comment : comments) {
+                String preview = comment.getText();
+                if (preview != null && preview.length() > 100) {
+                    preview = preview.substring(0, 100) + "...";
+                }
+
+                logger.info("    🗨️ Comment by {} | Sentiment: {} | Upvotes: {} | Text: {}",
+                        comment.getAuthor(),
+                        comment.getSentiment(),
+                        comment.getUpvotes(),
+                        preview != null ? preview : "(no text)");
+            }
+
+            logger.info("--------------------------------------------------");
         }
 
         return posts;
@@ -87,9 +110,19 @@ public class RedditFetcher {
         Pattern keywordPattern = (keywords != null && !keywords.isEmpty()) ? buildKeywordPattern(keywords) : null;
         Set<String> authorSet = (authors != null) ? new HashSet<>(authors.stream().map(String::toLowerCase).toList()) : null;
 
-        return posts.stream()
+        logger.info("🔍 Starting post filtering:");
+        logger.info("   ➤ Keywords: {}", keywords != null ? keywords : "None");
+        logger.info("   ➤ Min upvotes: {}", minUpvotes != null ? minUpvotes : "None");
+        logger.info("   ➤ Date range: {} to {}",
+                dateFrom != null ? dateFrom : "Any",
+                dateTo != null ? dateTo : "Any");
+        logger.info("   ➤ Authors: {}", authors != null ? authors : "None");
+
+        int totalBefore = posts.size();
+        List<Post> filtered = posts.stream()
                 .map(post -> {
-                    if (!passesPostFilters(post, minUpvotes, dateFrom, dateTo, keywordPattern, authorSet)) {
+                    if (!passesPostFilters(post, minUpvotes, dateFrom, dateTo)) {
+                        logger.debug("❌ Post '{}' filtered out by post-level criteria.", post.getTitle());
                         return null;
                     }
 
@@ -98,6 +131,7 @@ public class RedditFetcher {
                             .collect(Collectors.toList());
 
                     if (matchingComments.isEmpty() && keywordPattern != null && !matches(post.getTitle(), keywordPattern)) {
+                        logger.debug("❌ Post '{}' filtered out (no matching comments or keyword in title).", post.getTitle());
                         return null;
                     }
 
@@ -113,21 +147,22 @@ public class RedditFetcher {
                 })
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
+
+        logger.info("✅ Filtered posts: {}/{}", filtered.size(), totalBefore);
+
+        return filtered;
     }
 
     private boolean passesPostFilters(
             Post post,
             Integer minUpvotes,
             OffsetDateTime from,
-            OffsetDateTime to,
-            Pattern keywordPattern,
-            Set<String> authors
+            OffsetDateTime to
     ) {
         if (minUpvotes != null && post.getUpvotes() < minUpvotes) return false;
         if (from != null && post.getDate().isBefore(from)) return false;
         if (to != null && post.getDate().isAfter(to)) return false;
-        if (authors != null && !authors.contains(Optional.ofNullable(post.getSubreddit()).orElse("").toLowerCase()))
-            return false;
+
         return true;
     }
 
