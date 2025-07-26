@@ -3,7 +3,7 @@ package damnosol.triggeriq.sentiment;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import damnosol.triggeriq.sentiment.reddit.Comment;
 import damnosol.triggeriq.sentiment.reddit.Post;
-import damnosol.triggeriq.sentiment.storage.MinioStorageService;
+import damnosol.triggeriq.sentiment.services.storage.MinioStorageService;
 import edu.stanford.nlp.pipeline.CoreDocument;
 import edu.stanford.nlp.pipeline.CoreSentence;
 import edu.stanford.nlp.pipeline.StanfordCoreNLP;
@@ -46,25 +46,7 @@ public class SentimentAnalyzer {
         this.multivariateSentimentAnalysis = multivariateSentimentAnalysis;
     }
 
-    public String analyze(String text) {
-        if (text == null || text.trim().isEmpty()) return "Unknown";
-
-        try {
-            CoreDocument doc = new CoreDocument(text.trim());  // Trim any leading/trailing spaces
-            pipeline.annotate(doc);
-
-            // Handle multiple sentences; can either return aggregated sentiment or just the first
-            return doc.sentences().stream()
-                    .map(CoreSentence::sentiment)
-                    .findFirst()
-                    .orElse("Unknown");  // Fallback to "Unknown" if no sentiment found
-        } catch (Exception e) {
-            logger.error("Sentiment analysis failed", e);
-            return "Unknown";
-        }
-    }
-
-    public void analyzeAndPrintAndStore(List<Post> posts) {
+    public void analyze(List<Post> posts) {
         // Check if the posts list is empty or null
         if (posts == null || posts.isEmpty()) {
             logger.warn("❌ No posts available for sentiment analysis.");
@@ -133,6 +115,24 @@ public class SentimentAnalyzer {
             logger.info("➤ Weka RandomForest Regression Model:\n{}", wekaRF);
         } catch (Exception e) {
             logger.error("❌ Error during Weka model training", e);
+        }
+    }
+
+    private String analyze(String text) {
+        if (text == null || text.trim().isEmpty()) return "Unknown";
+
+        try {
+            CoreDocument doc = new CoreDocument(text.trim());  // Trim any leading/trailing spaces
+            pipeline.annotate(doc);
+
+            // Handle multiple sentences; can either return aggregated sentiment or just the first
+            return doc.sentences().stream()
+                    .map(CoreSentence::sentiment)
+                    .findFirst()
+                    .orElse("Unknown");  // Fallback to "Unknown" if no sentiment found
+        } catch (Exception e) {
+            logger.error("Sentiment analysis failed", e);
+            return "Unknown";
         }
     }
 
@@ -380,7 +380,7 @@ public class SentimentAnalyzer {
         return true;
     }
 
-    public record AlignedData(
+    private record AlignedData(
             double[] sentiments,
             double[] lengths,
             double[] hasQuestions,
@@ -389,7 +389,7 @@ public class SentimentAnalyzer {
     ) {
     }
 
-    public AlignedData extractAlignedCommentFeatures(List<Post> posts) {
+    private AlignedData extractAlignedCommentFeatures(List<Post> posts) {
         List<Double> sentiments = new ArrayList<>();
         List<Double> lengths = new ArrayList<>();
         List<Double> hasQuestions = new ArrayList<>();

@@ -136,6 +136,13 @@ reddit:
   username: ${REDDIT_USERNAME}
   password: ${REDDIT_PASSWORD}
   user-agent: ${REDDIT_USER_AGENT}
+  defaults:
+    limit: 10
+    min-upvotes: 0
+    keywords: [ ]
+    authors: [ ]
+    date-from: 2000-01-01T00:00:00Z
+    date-to: 2100-01-01T00:00:00Z
 
 minio:
   endpoint: http://localhost:9000

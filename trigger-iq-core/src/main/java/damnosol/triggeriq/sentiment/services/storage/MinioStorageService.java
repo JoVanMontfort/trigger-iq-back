@@ -1,4 +1,4 @@
-package damnosol.triggeriq.sentiment.storage;
+package damnosol.triggeriq.sentiment.services.storage;
 
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;

@@ -24,17 +24,17 @@
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>damnosol.triggeriq</groupId>
-            <artifactId>trigger-iq-model</artifactId>
-            <version>0.0.1-SNAPSHOT</version>
-        </dependency>
-
         <!-- Spring Boot Starter for Redis -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>
             <version>3.0.0</version>
+        </dependency>
+
+        <dependency>
+            <groupId>damnosol.triggeriq</groupId>
+            <artifactId>trigger-iq-core</artifactId>
+            <version>0.0.1-SNAPSHOT</version>
         </dependency>
 
         <!-- Lettuce Redis client -->
@@ -48,12 +48,6 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-cache</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>software.amazon.awssdk</groupId>
-            <artifactId>s3</artifactId>
-            <version>2.25.19</version> <!-- or latest -->
         </dependency>
 
         <dependency>

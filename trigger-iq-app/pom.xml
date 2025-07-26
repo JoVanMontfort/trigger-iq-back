@@ -27,16 +27,6 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter</artifactId>
         </dependency>
-        <dependency>
-            <groupId>damnosol.triggeriq</groupId>
-            <artifactId>trigger-iq-service</artifactId>
-            <version>0.0.1-SNAPSHOT</version>
-        </dependency>
-        <dependency>
-            <groupId>damnosol.triggeriq</groupId>
-            <artifactId>trigger-iq-core</artifactId>
-            <version>0.0.1-SNAPSHOT</version>
-        </dependency>
 
         <dependency>
             <groupId>me.paulschwarz</groupId>
