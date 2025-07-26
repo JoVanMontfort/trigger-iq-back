@@ -22,7 +22,7 @@ public class TriggerIqApplication {
     @Bean
     CommandLineRunner run(RedditFetcher fetcher, SentimentAnalyzer analyzer) {
         return args -> {
-            List<Post> fetchedPosts = fetcher.fetchTopPosts("RoastMe", 50 );
+            List<Post> fetchedPosts = fetcher.fetchTopPosts("goodnews", 50 );
             analyzer.analyzeAndPrintAndStore(fetchedPosts); // No need for JSON conversion
         };
     }
