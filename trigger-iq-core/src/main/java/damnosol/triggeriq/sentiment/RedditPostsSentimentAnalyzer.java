@@ -306,7 +306,7 @@ public class RedditPostsSentimentAnalyzer {
 
         // Perform analysis only if enough data is available
         if (upvotes.size() < 2) {
-            logger.warn("❌ Not enough data for correlation/causality analysis after filtering.");
+            logger.warn("❌ Not enough data for correlation/causality analysis after filtering (only {} entries).", upvotes.size());
             return;
         }
 

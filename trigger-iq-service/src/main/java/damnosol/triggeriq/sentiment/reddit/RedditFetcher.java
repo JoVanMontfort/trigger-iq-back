@@ -57,7 +57,7 @@ public class RedditFetcher {
         headers.set("User-Agent", "java:triggeriq.reddit:v1.0 (by /u/No-Economics9519)");
         HttpEntity<String> entity = new HttpEntity<>(headers);
 
-        List<Post> posts = cacheDelegate.fetchTopPosts(url, entity);
+        List<Post> posts = cacheDelegate.fetchPosts(url, entity);
 
         for (Post post : posts) {
             String permalink = "/r/" + subreddit + "/comments/" + post.getId();
