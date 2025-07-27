@@ -1,6 +1,6 @@
 package damnosol.triggeriq.rest.reddit;
 
-import damnosol.triggeriq.dto.SentimentAnalysisResult;
+import damnosol.triggeriq.sentiment.dto.SentimentAnalysisResult;
 import damnosol.triggeriq.sentiment.reddit.Comment;
 import damnosol.triggeriq.sentiment.reddit.Post;
 import damnosol.triggeriq.sentiment.reddit.RedditFetcher;

@@ -161,9 +161,7 @@ public class RedditFetcher {
     ) {
         if (minUpvotes != null && post.getUpvotes() < minUpvotes) return false;
         if (from != null && post.getDate().isBefore(from)) return false;
-        if (to != null && post.getDate().isAfter(to)) return false;
-
-        return true;
+        return to == null || !post.getDate().isAfter(to);
     }
 
     private boolean passesCommentFilters(Comment comment, Pattern pattern, Set<String> authors) {

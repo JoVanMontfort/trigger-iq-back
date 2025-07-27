@@ -1,4 +1,4 @@
-package damnosol.triggeriq.dto;
+package damnosol.triggeriq.sentiment.dto;
 
 import damnosol.triggeriq.sentiment.reddit.Post;
 import lombok.AllArgsConstructor;

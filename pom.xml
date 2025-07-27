@@ -15,6 +15,7 @@
         <module>trigger-iq-api</module>
         <module>trigger-iq-core</module>
         <module>trigger-iq-app</module>
+        <module>trigger-iq-repository</module>
     </modules>
 
     <properties>

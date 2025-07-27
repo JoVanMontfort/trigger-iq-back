@@ -1,0 +1,66 @@
+{
+  "_type": "export",
+  "__export_format": 4,
+  "__export_date": "2025-07-27T14:20:45.109184Z",
+  "__export_source": "chatgpt:sentiment-job-api",
+  "resources": [
+    {
+      "_id": "wrk_sentiment_job_workspace",
+      "created": 1753626045109,
+      "description": "Workspace for async sentiment job controller",
+      "modified": 1753626045109,
+      "name": "Sentiment Job API",
+      "_type": "workspace"
+    },
+    {
+      "_id": "env_sentiment_job_env",
+      "created": 1753626045109,
+      "modified": 1753626045109,
+      "name": "Base Environment",
+      "data": {
+        "base_url": "http://localhost:8080",
+        "job_id": "REPLACE_WITH_JOB_ID_AFTER_SUBMISSION"
+      },
+      "_type": "environment",
+      "parentId": "wrk_sentiment_job_workspace"
+    },
+    {
+      "_id": "req_post_sentiment_job",
+      "created": 1753626045109,
+      "modified": 1753626045109,
+      "name": "Submit Sentiment Job",
+      "url": "{{ base_url }}/sentiment/job",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"subreddit\": \"goodnews\",\n  \"limit\": 10,\n  \"keywords\": [\n    \"AI\",\n    \"machine learning\"\n  ],\n  \"minUpvotes\": 5,\n  \"dateFrom\": \"2025-07-01T00:00:00Z\",\n  \"dateTo\": \"2025-07-26T23:59:59Z\",\n  \"authors\": [\n    \"SomeAuthor\"\n  ]\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "_type": "request",
+      "parentId": "wrk_sentiment_job_workspace"
+    },
+    {
+      "_id": "req_get_sentiment_status",
+      "created": 1753626045109,
+      "modified": 1753626045109,
+      "name": "Poll Sentiment Job Status",
+      "url": "{{ base_url }}/sentiment/job/{{ job_id }}",
+      "method": "GET",
+      "headers": [
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "parameters": [],
+      "_type": "request",
+      "parentId": "wrk_sentiment_job_workspace"
+    }
+  ]
+}

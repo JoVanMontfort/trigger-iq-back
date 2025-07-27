@@ -6,8 +6,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import damnosol.triggeriq.sentiment.async.model.responses.SentimentJobResult;
 import damnosol.triggeriq.sentiment.reddit.Post;
 import damnosol.triggeriq.serializer.ListPostSerializer;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.cache.interceptor.KeyGenerator;
@@ -17,6 +19,8 @@ import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
+import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
@@ -51,13 +55,31 @@ public class RedisConfig {
         return mapper;
     }
 
-    @Bean
-    public RedisTemplate<String, List<Post>> redisTemplate(RedisConnectionFactory connectionFactory,
-                                                           ObjectMapper redisObjectMapper) {
+    @Bean(name = "jobResultRedisTemplate")
+    public RedisTemplate<String, SentimentJobResult> jobResultRedisTemplate(
+            RedisConnectionFactory factory,
+            ObjectMapper redisObjectMapper
+    ) {
+        RedisTemplate<String, SentimentJobResult> template = new RedisTemplate<>();
+        template.setConnectionFactory(factory);
+        template.setKeySerializer(new StringRedisSerializer());
+
+        Jackson2JsonRedisSerializer<SentimentJobResult> serializer =
+                new Jackson2JsonRedisSerializer<>(SentimentJobResult.class);
+        serializer.setObjectMapper(redisObjectMapper);
+
+        template.setValueSerializer(serializer);
+        return template;
+    }
+
+
+    @Bean(name = "postListRedisTemplate")
+    public RedisTemplate<String, List<Post>> postListRedisTemplate(RedisConnectionFactory connectionFactory,
+                                                                   ObjectMapper redisObjectMapper) {
         RedisTemplate<String, List<Post>> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
         template.setKeySerializer(new StringRedisSerializer());
-        template.setValueSerializer(new ListPostSerializer(redisObjectMapper)); // FIXED
+        template.setValueSerializer(new ListPostSerializer(redisObjectMapper));
         return template;
     }
 

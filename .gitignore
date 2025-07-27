@@ -182,3 +182,8 @@ coverage/
 /.mvn/wrapper/MavenWrapperDownloader.java
 /mvnw
 /mvnw.cmd
+/trigger-iq-repository/target/maven-status/maven-compiler-plugin/compile/default-compile/createdFiles.lst
+/trigger-iq-repository/target/maven-status/maven-compiler-plugin/testCompile/default-testCompile/createdFiles.lst
+/trigger-iq-repository/target/maven-status/maven-compiler-plugin/compile/default-compile/inputFiles.lst
+/trigger-iq-repository/target/maven-status/maven-compiler-plugin/testCompile/default-testCompile/inputFiles.lst
+/trigger-iq-repository/target/maven-archiver/pom.properties

@@ -1,6 +1,6 @@
 package damnosol.triggeriq.sentiment.reddit;
 
-import damnosol.triggeriq.dto.SentimentAnalysisResult;
+import damnosol.triggeriq.sentiment.dto.SentimentAnalysisResult;
 import damnosol.triggeriq.sentiment.RedditPostsSentimentAnalyzer;
 import damnosol.triggeriq.sentiment.result.AnalysisResult;
 import org.springframework.stereotype.Service;
