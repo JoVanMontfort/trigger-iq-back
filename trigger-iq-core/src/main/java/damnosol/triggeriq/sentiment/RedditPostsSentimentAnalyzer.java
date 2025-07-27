@@ -8,6 +8,7 @@ import damnosol.triggeriq.sentiment.services.storage.MinioStorageService;
 import edu.stanford.nlp.pipeline.CoreDocument;
 import edu.stanford.nlp.pipeline.CoreSentence;
 import edu.stanford.nlp.pipeline.StanfordCoreNLP;
+import org.apache.commons.math3.linear.SingularMatrixException;
 import org.fusesource.jansi.Ansi;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -340,54 +341,73 @@ public class RedditPostsSentimentAnalyzer {
     }
 
     private void analyzeCommentSentimentUpvoteCorrelation(List<Post> posts) {
+        if (posts == null || posts.isEmpty()) {
+            logger.warn("❌ No posts provided for sentiment/upvote correlation.");
+            return;
+        }
+
         List<Double> commentUpvotes = new ArrayList<>();
         List<Double> commentSentiments = new ArrayList<>();
 
         for (Post post : posts) {
-            post.getComments().forEach(comment -> {
-                double upvote = comment.getUpvotes();
-                double sentimentScore = convertSentimentToNumerical(comment.getSentiment());
+            if (post.getComments() == null) continue;
 
+            for (Comment comment : post.getComments()) {
+                if (comment == null || comment.getText() == null || comment.getText().isBlank()) continue;
+
+                double upvote = comment.getUpvotes();
+                String sentiment = comment.getSentiment();
+                if (sentiment == null) continue;
+
+                double sentimentScore = convertSentimentToNumerical(sentiment);
                 if (isValidData(upvote, sentimentScore)) {
                     commentUpvotes.add(upvote);
                     commentSentiments.add(sentimentScore);
                 }
-            });
+            }
         }
 
-        // Perform analysis only if enough data is available
-        if (commentUpvotes.size() < 2) {
-            logger.warn("❌ Not enough comment data for correlation/causality analysis after filtering.");
+        if (commentUpvotes.size() < 3) {
+            logger.warn("❌ Not enough valid comment data for correlation/causality analysis (need at least 3, found {}).", commentUpvotes.size());
             return;
         }
 
-        // Convert lists to arrays
         double[] upvoteArray = convertListToArray(commentUpvotes);
         double[] sentimentArray = convertListToArray(commentSentiments);
-        String[] commentTexts = extractCommentTexts(posts).toArray(new String[0]);
+        String[] commentTexts = extractCommentTexts(posts).stream()
+                .filter(Objects::nonNull)
+                .filter(t -> !t.isBlank())
+                .toArray(String[]::new);
 
         logInputArraySizes(upvoteArray, sentimentArray, commentTexts);
 
-        // Calculate correlation and causality
-        double correlation = sentimentUpvoteAnalysis.calculatePearsonCorrelation(upvoteArray, sentimentArray);
-        double[] causalityLinear = sentimentUpvoteAnalysis.performLinearRegression(upvoteArray, sentimentArray);
+        try {
+            double correlation = sentimentUpvoteAnalysis.calculatePearsonCorrelation(upvoteArray, sentimentArray);
+            double[] causalityLinear = sentimentUpvoteAnalysis.performLinearRegression(upvoteArray, sentimentArray);
 
-        String wekaModel = "⚠️ Skipped (array mismatch)";
-        String wekaRFModel = "⚠️ Skipped (array mismatch)";
+            String wekaModel = "⚠️ Skipped (array mismatch)";
+            String wekaRFModel = "⚠️ Skipped (array mismatch)";
 
-        if (validateEqualLengths("Weka Linear Regression", upvoteArray, sentimentArray, commentTexts)) {
-            wekaModel = multivariateSentimentAnalysis.performWekaRegression(upvoteArray, sentimentArray, commentTexts);
+            if (validateEqualLengths("Weka Linear Regression", upvoteArray, sentimentArray, commentTexts)) {
+                wekaModel = multivariateSentimentAnalysis.performWekaRegression(upvoteArray, sentimentArray, commentTexts);
+            }
+
+            double[] lengths = extractCommentLengths(posts);
+            double[] hasQuestionMarks = extractHasQuestionMarks(posts);
+
+            if (validateEqualLengths("Weka RandomForest", sentimentArray, lengths, hasQuestionMarks, upvoteArray)) {
+                wekaRFModel = multivariateSentimentAnalysis.performWekaRandomForestRegression(
+                        sentimentArray, lengths, hasQuestionMarks, upvoteArray
+                );
+            }
+
+            logAnalysisSummary(correlation, causalityLinear, wekaModel, wekaRFModel);
+
+        } catch (SingularMatrixException e) {
+            logger.error("❌ Singular matrix during regression: {}", e.getMessage(), e);
+        } catch (Exception e) {
+            logger.error("❌ Unexpected error during correlation/causality analysis: {}", e.getMessage(), e);
         }
-
-        // Check Weka RandomForest model
-        double[] lengths = extractCommentLengths(posts);
-        double[] hasQuestionMarks = extractHasQuestionMarks(posts);
-        if (validateEqualLengths("Weka RandomForest", sentimentArray, lengths, hasQuestionMarks, upvoteArray)) {
-            wekaRFModel = multivariateSentimentAnalysis.performWekaRandomForestRegression(sentimentArray, lengths, hasQuestionMarks, upvoteArray);
-        }
-
-        // Log results
-        logAnalysisSummary(correlation, causalityLinear, wekaModel, wekaRFModel);
     }
 
     private void multivariateSentimentAnalysisAnalysis(List<Post> posts) {
