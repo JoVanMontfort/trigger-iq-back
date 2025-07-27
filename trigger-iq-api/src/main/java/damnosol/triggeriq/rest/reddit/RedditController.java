@@ -66,7 +66,7 @@ public class RedditController {
                 minUpvotes != null ? minUpvotes : defaultMinUpvotes,
                 dateFrom != null ? dateFrom : OffsetDateTime.parse(defaultDateFrom),
                 dateTo != null ? dateTo : OffsetDateTime.parse(defaultDateTo),
-                authors != null ? authors : List.of(defaultAuthors.split(","))
+                authors
         );
 
         logger.info("✅ Fetched {} post(s) from subreddit: r/{}", fetched.size(), subreddit);
