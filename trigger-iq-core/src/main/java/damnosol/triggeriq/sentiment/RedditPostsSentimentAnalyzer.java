@@ -353,16 +353,32 @@ public class RedditPostsSentimentAnalyzer {
             if (post.getComments() == null) continue;
 
             for (Comment comment : post.getComments()) {
-                if (comment == null || comment.getText() == null || comment.getText().isBlank()) continue;
+                if (comment == null || comment.getText() == null || comment.getText().isBlank()) {
+                    logger.debug("⏭️ Skipping null/blank comment in post '{}'", post.getTitle());
+                    continue;
+                }
 
                 double upvote = comment.getUpvotes();
                 String sentiment = comment.getSentiment();
-                if (sentiment == null) continue;
+                if (sentiment == null) {
+                    logger.debug("⏭️ Skipping comment with null sentiment in post '{}'", post.getTitle());
+                    continue;
+                }
 
                 double sentimentScore = convertSentimentToNumerical(sentiment);
                 if (isValidData(upvote, sentimentScore)) {
                     commentUpvotes.add(upvote);
                     commentSentiments.add(sentimentScore);
+
+                    logger.info("✅ Including comment for analysis:");
+                    logger.info("   ➤ Post Title: {}", post.getTitle());
+                    logger.info("   ➤ Subreddit: {}", post.getSubreddit());
+                    logger.info("   ➤ Comment Text: {}", comment.getText());
+                    logger.info("   ➤ Upvotes: {}", upvote);
+                    logger.info("   ➤ Sentiment (String): {}", sentiment);
+                    logger.info("   ➤ Sentiment (Score): {}", sentimentScore);
+                } else {
+                    logger.debug("⏭️ Skipping comment with invalid data: upvotes = {}, sentimentScore = {}", upvote, sentimentScore);
                 }
             }
         }
