@@ -1,7 +1,7 @@
 package damnosol.triggeriq.sentiment.reddit;
 
-import damnosol.triggeriq.sentiment.dto.SentimentAnalysisResult;
 import damnosol.triggeriq.sentiment.RedditPostsSentimentAnalyzer;
+import damnosol.triggeriq.sentiment.dto.SentimentAnalysisResult;
 import damnosol.triggeriq.sentiment.result.AnalysisResult;
 import org.springframework.stereotype.Service;
 
@@ -120,7 +120,14 @@ public class SentimentAnalysisService {
     }
 
     private Double calculateCorrelationLengthSentiment(List<Post> posts) {
-        return calculateCorrelation(posts, Post::getSentimentScore, post -> post.getTopComment().length());
+        return calculateCorrelation(
+                posts,
+                Post::getSentimentScore,
+                post -> {
+                    String topComment = post.getTopComment();
+                    return (topComment != null && !topComment.isBlank()) ? topComment.length() : 0;
+                }
+        );
     }
 
     private Double calculateCorrelation(List<Post> posts, SentimentExtractor sentimentExtractor, ValueExtractor valueExtractor) {
