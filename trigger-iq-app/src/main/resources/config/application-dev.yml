@@ -138,10 +138,10 @@ reddit:
   password: ${REDDIT_PASSWORD}
   user-agent: ${REDDIT_USER_AGENT}
   default:
-    limit: 10
-    min-upvotes: 5
+    limit: 40
+    min-upvotes: 1
     keywords: Trump,Biden
-    authors: elonmusk,No-Economics9519
+    authors: elonmusk
     date-from: "2024-01-01T00:00:00Z"
     date-to: "2025-12-31T23:59:59Z"
 
