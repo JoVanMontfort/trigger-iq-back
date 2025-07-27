@@ -2,6 +2,7 @@ package damnosol.triggeriq.sentiment.reddit;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.io.Serializable;
@@ -91,6 +92,7 @@ public class Comment implements Serializable {
      *
      * @return A numerical sentiment score.
      */
+    @JsonIgnore
     public double getSentimentScore() {
         if (sentiment == null) return 0.0;
         switch (sentiment.toLowerCase()) {

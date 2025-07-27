@@ -2,6 +2,7 @@ package damnosol.triggeriq.sentiment.reddit;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.io.Serializable;
@@ -19,13 +20,12 @@ public class Post implements Serializable {
     private OffsetDateTime date;
 
     private List<Comment> comments;
-    private String subreddit; // New field for subreddit
-    private String id; // New field for post ID
+    private String subreddit;
+    private String id;
 
     public Post() {
     }
 
-    // Constructor with @JsonCreator to assist Jackson in creating a Post from JSON
     @JsonCreator
     public Post(
             @JsonProperty("title") String title,
@@ -120,6 +120,7 @@ public class Post implements Serializable {
      *
      * @return A numerical sentiment score.
      */
+    @JsonIgnore
     public double getSentimentScore() {
         switch (sentiment.toLowerCase()) {
             case "positive":
@@ -138,6 +139,7 @@ public class Post implements Serializable {
      *
      * @return The date the post was created.
      */
+    @JsonIgnore
     public OffsetDateTime getCreationDate() {
         return this.date;
     }
@@ -147,6 +149,7 @@ public class Post implements Serializable {
      *
      * @return The author of the post.
      */
+    @JsonIgnore
     public String getAuthor() {
         if (comments != null && !comments.isEmpty()) {
             // Return the author of the comment with the highest upvotes
@@ -164,6 +167,7 @@ public class Post implements Serializable {
      *
      * @return The text of the top comment.
      */
+    @JsonIgnore
     public String getTopComment() {
         if (comments == null || comments.isEmpty()) return null;
 
