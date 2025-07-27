@@ -111,12 +111,10 @@ public class RedditFetcher {
         Set<String> authorSet = (authors != null) ? new HashSet<>(authors.stream().map(String::toLowerCase).toList()) : null;
 
         logger.info("🔍 Starting post filtering:");
-        logger.info("   ➤ Keywords: {}", keywords != null ? keywords : "None");
+        logger.info("   ➤ Keywords (titles only): {}", keywords != null ? keywords : "None");
         logger.info("   ➤ Min upvotes: {}", minUpvotes != null ? minUpvotes : "None");
-        logger.info("   ➤ Date range: {} to {}",
-                dateFrom != null ? dateFrom : "Any",
-                dateTo != null ? dateTo : "Any");
-        logger.info("   ➤ Authors: {}", authors != null ? authors : "None");
+        logger.info("   ➤ Date range: {} to {}", dateFrom != null ? dateFrom : "Any", dateTo != null ? dateTo : "Any");
+        logger.info("   ➤ Authors (comment authors): {}", authors != null ? authors : "None");
 
         int totalBefore = posts.size();
         List<Post> filtered = posts.stream()
@@ -126,21 +124,23 @@ public class RedditFetcher {
                         return null;
                     }
 
-                    List<Comment> matchingComments = post.getComments().stream()
-                            .filter(comment -> passesCommentFilters(comment, keywordPattern, authorSet))
-                            .collect(Collectors.toList());
-
-                    if (matchingComments.isEmpty() && keywordPattern != null && !matches(post.getTitle(), keywordPattern)) {
-                        logger.debug("❌ Post '{}' filtered out (no matching comments or keyword in title).", post.getTitle());
+                    // Keyword match in post title only
+                    if (keywordPattern != null && !matches(post.getTitle(), keywordPattern)) {
+                        logger.debug("❌ Post '{}' filtered out (no keyword match in title).", post.getTitle());
                         return null;
                     }
+
+                    // Filter comments ONLY by author (if applicable)
+                    List<Comment> filteredComments = post.getComments().stream()
+                            .filter(comment -> passesCommentAuthorFilter(comment, authorSet))
+                            .collect(Collectors.toList());
 
                     return new Post(
                             post.getTitle(),
                             post.getSentiment(),
                             post.getUpvotes(),
                             post.getDate(),
-                            matchingComments,
+                            filteredComments,
                             post.getSubreddit(),
                             post.getId()
                     );
@@ -164,10 +164,8 @@ public class RedditFetcher {
         return to == null || !post.getDate().isAfter(to);
     }
 
-    private boolean passesCommentFilters(Comment comment, Pattern pattern, Set<String> authors) {
-        boolean matchesKeyword = pattern == null || matches(comment.getText(), pattern);
-        boolean matchesAuthor = authors == null || authors.contains(Optional.ofNullable(comment.getAuthor()).orElse("").toLowerCase());
-        return matchesKeyword && matchesAuthor;
+    private boolean passesCommentAuthorFilter(Comment comment, Set<String> authors) {
+        return authors == null || authors.contains(Optional.ofNullable(comment.getAuthor()).orElse("").toLowerCase());
     }
 
     private Pattern buildKeywordPattern(List<String> keywords) {
