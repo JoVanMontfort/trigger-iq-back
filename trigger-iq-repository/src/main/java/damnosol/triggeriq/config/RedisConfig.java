@@ -40,7 +40,6 @@ public class RedisConfig {
     public ObjectMapper redisObjectMapper() {
         ObjectMapper mapper = new ObjectMapper();
 
-        // Register JavaTimeModule with custom serialization for Instant
         JavaTimeModule javaTimeModule = new JavaTimeModule();
         javaTimeModule.addSerializer(Instant.class, new JsonSerializer<Instant>() {
             @Override
@@ -98,11 +97,10 @@ public class RedisConfig {
     @Bean
     public CacheManager cacheManager(RedisConnectionFactory connectionFactory,
                                      ObjectMapper redisObjectMapper) {
-        // Set TTL for cache entries (for example, 5 minutes)
         RedisCacheConfiguration config = RedisCacheConfiguration.defaultCacheConfig()
                 .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
                 .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(new ListPostSerializer(redisObjectMapper)))
-                .entryTtl(Duration.ofMinutes(5)); // Cache entries will expire after 5 minutes
+                .entryTtl(Duration.ofHours(8)); // Cache entries will expire after 8 hours
 
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(config)

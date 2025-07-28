@@ -460,7 +460,7 @@ public class RedditPostsSentimentAnalyzer {
     }
 
     private boolean isValidData(double upvote, double sentimentScore) {
-        return upvote > 0 && sentimentScore != 0.0;
+        return !Double.isNaN(upvote) && !Double.isNaN(sentimentScore);
     }
 
     private double[] convertListToArray(List<Double> list) {
