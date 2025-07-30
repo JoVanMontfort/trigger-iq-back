@@ -42,7 +42,7 @@ public class SentimentJobService {
     public String submitJob(SentimentJobRequest request) {
         String jobId = UUID.randomUUID().toString();
         SentimentJobResult init = new SentimentJobResult(JobStatus.IN_PROGRESS, null, null, OffsetDateTime.now());
-        repository.save(jobId, init, Duration.ofHours(2));
+        repository.save(jobId, init, Duration.ofHours(8));
 
         asyncExecutor.execute(() -> {
             try {
@@ -56,7 +56,7 @@ public class SentimentJobService {
                         request.getAuthors()
                 );
                 SentimentAnalysisResult result = sentimentService.analyze(posts);
-                repository.save(jobId, new SentimentJobResult(JobStatus.COMPLETED, result, null, OffsetDateTime.now()), Duration.ofHours(6));
+                repository.save(jobId, new SentimentJobResult(JobStatus.COMPLETED, result, null, OffsetDateTime.now()), Duration.ofHours(8));
             } catch (Exception e) {
                 logger.error("""
                                 ❌ Sentiment analysis job FAILED
@@ -81,7 +81,7 @@ public class SentimentJobService {
                         e.getMessage(),
                         e
                 );
-                repository.save(jobId, new SentimentJobResult(JobStatus.FAILED, null, e.getMessage(), OffsetDateTime.now()), Duration.ofHours(6));
+                repository.save(jobId, new SentimentJobResult(JobStatus.FAILED, null, e.getMessage(), OffsetDateTime.now()), Duration.ofHours(8));
             }
         });
 

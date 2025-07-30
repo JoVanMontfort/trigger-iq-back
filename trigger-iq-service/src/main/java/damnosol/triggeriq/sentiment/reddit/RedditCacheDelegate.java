@@ -67,7 +67,7 @@ public class RedditCacheDelegate {
             }
 
             // Save to Redis
-            postListRedisTemplate.opsForValue().set(cacheKey, results);
+            postListRedisTemplate.opsForValue().set(cacheKey, results, Duration.ofHours(8));
             logger.info("💾 Stored Reddit posts in Redis cache: {}", cacheKey);
 
         } catch (Exception e) {
@@ -108,7 +108,7 @@ public class RedditCacheDelegate {
             }
 
             // ✅ Cache it
-            commentListRedisTemplate.opsForValue().set(redisKey, comments, Duration.ofHours(1));
+            commentListRedisTemplate.opsForValue().set(redisKey, comments, Duration.ofHours(8));
 
         } catch (Exception e) {
             logger.error("Error fetching Reddit comments: {}", e.getMessage(), e);
