@@ -1,0 +1,9 @@
+AWS Usage Analysis Report
+========================================
+
+Time Period: 2025-07-01 to 2025-08-02
+Total Services Tracked: 16
+Total Usage Quantity: 29.45K
+Average Daily Usage: 892.45
+Peak Usage Day: 2025-07-04
+Most Used Service: Amazon Route 53

@@ -1,0 +1,25 @@
+AWS USAGE ANALYSIS REPORT
+========================================
+
+Report Generated         : 2025-08-06 22:21:56
+Time Period Covered      : 2025-07-01 to 2025-08-05
+Total Services Tracked   : 17
+Total Records Processed  : 405
+Total Usage Quantity     : 31.80K (31,798.78)
+Average Daily Usage      : 883.30
+Peak Usage Day           : 2025-07-04 (1.60K)
+Most Used Service        : Amazon Route 53 (11.75K)
+Zero Usage Records       : 39 (9.6%)
+
+TOP SERVICES SUMMARY:
+----------------------------------------
+Amazon Route 53               :     11.75K (11,747.00)
+AWS Key Management Service    :      6.94K (6,943.16)
+Amazon Elastic Container Service for Kubernetes:      4.50K (4,499.08)
+Amazon Virtual Private Cloud  :      3.91K (3,913.49)
+EC2 - Other                   :      2.22K (2,224.16)
+Amazon Elastic Compute Cloud - Compute:      1.47K (1,471.56)
+Amazon Elastic Load Balancing :     868.96 (868.96)
+AmazonCloudWatch              :      68.22 (68.22)
+AWS CloudFormation            :      39.00 (39.00)
+Amazon Simple Storage Service :       8.15 (8.15)
