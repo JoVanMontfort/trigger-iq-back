@@ -6,6 +6,7 @@ import org.springframework.context.annotation.ComponentScan;
 
 @SpringBootApplication
 @ComponentScan(basePackages = {"damnosol.triggeriq.sentiment.reddit",
+        "damnosol.triggeriq.sentiment.quora",
         "damnosol.triggeriq.sentiment",
         "damnosol.triggeriq.config",
         "damnosol.triggeriq.rest.reddit",
