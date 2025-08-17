@@ -1,5 +1,6 @@
 package damnosol.triggeriq.sentiment.quora;
 
+import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -10,30 +11,44 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+@Slf4j
 @Service
 public class QuoraAnswerExtractor {
 
+    private static final String USER_AGENT = "Mozilla/5.0 (TriggerIQ-Bot)";
+
     public List<String> extractAnswers(String archivedUrl) {
         List<String> answers = new ArrayList<>();
-
         try {
+            log.info("Fetching archived Quora page: {}", archivedUrl);
+
             Document doc = Jsoup.connect(archivedUrl)
-                    .userAgent("Mozilla/5.0 (TriggerIQ-Bot)")
-                    .timeout(10000)
+                    .userAgent(USER_AGENT)
+                    .timeout(15000)
                     .get();
 
-            // Quora often wraps answers in divs with rich text formatting
-            Elements answerBlocks = doc.select("div.q-relative");
+            Elements answerBlocks = doc.select(
+                    "div.q-relative.spacing_log_answer_content, " +
+                            "div.q-box.qu-mb--medium, " +
+                            "div.Answer div.q-box"
+            );
 
             for (Element block : answerBlocks) {
-                // Filter by likely classes that hold full answers (adjust if needed)
-                if (block.text().length() > 100) {
-                    answers.add(block.text());
+                String cleanText = block.text().trim();
+                if (cleanText.length() > 50 &&
+                        !cleanText.toLowerCase().contains("quora") &&
+                        !cleanText.toLowerCase().startsWith("related questions")) {
+                    answers.add(cleanText);
+                    log.debug("Extracted answer: {}", cleanText.length() > 120
+                            ? cleanText.substring(0, 120) + "..."
+                            : cleanText);
                 }
             }
 
+            log.info("Total answers extracted from {}: {}", archivedUrl, answers.size());
+
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error("Failed to extract answers from archived Quora page: {}", archivedUrl, e);
         }
 
         return answers;
