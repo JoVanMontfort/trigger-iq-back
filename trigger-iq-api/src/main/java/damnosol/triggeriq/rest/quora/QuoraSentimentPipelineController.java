@@ -1,73 +1,84 @@
 package damnosol.triggeriq.rest.quora;
 
-import damnosol.triggeriq.sentiment.quora.QuoraAnswerExtractor;
-import damnosol.triggeriq.sentiment.quora.QuoraArchiveFetcher;
 import damnosol.triggeriq.sentiment.quora.QuoraLinkFetcher;
-import damnosol.triggeriq.sentiment.quora.responses.QuoraAnswerResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.stream.Collectors;
 
-/**
- * REST controller for fetching Quora answers based on a keyword.
- */
 @RestController
 @RequestMapping("/api/quora")
 @RequiredArgsConstructor
 @Slf4j
 public class QuoraSentimentPipelineController {
 
+    private static final String KEY_PENDING_URLS = "quora:pending";
+    private static final String KEY_TO_EXTRACT = "quora:to_extract";
+    private static final String KEY_SENTIMENT_PENDING = "sentiment:pending";
+
+    private final StringRedisTemplate redisTemplate;
     private final QuoraLinkFetcher linkFetcher;
-    private final QuoraArchiveFetcher archiveFetcher;
-    private final QuoraAnswerExtractor answerExtractor;
 
     /**
-     * Fetches Quora answers for the given keyword.
-     *
-     * @param keyword the search keyword to find relevant Quora links
-     * @return list of QuoraAnswerResponse with original and archived links plus extracted answers
+     * Enqueue links for a given keyword.
      */
-    @GetMapping("/answers")
-    public ResponseEntity<List<QuoraAnswerResponse>> fetchQuoraAnswers(@RequestParam String keyword) {
+    @GetMapping("/enqueue")
+    public ResponseEntity<String> enqueueQuoraLinks(@RequestParam String keyword) {
         if (keyword == null || keyword.isBlank()) {
-            log.warn("Received empty or null keyword in fetchQuoraAnswers");
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.badRequest().body("Keyword must not be empty");
         }
 
         log.info("Fetching Quora links for keyword '{}'", keyword);
-        var links = linkFetcher.fetchQuoraLinks(keyword);
+        List<String> links = linkFetcher.fetchQuoraLinks(keyword);
 
         if (links.isEmpty()) {
-            log.info("No Quora links found for keyword '{}'", keyword);
-            return ResponseEntity.ok(List.of());
+            return ResponseEntity.ok("No links found for keyword: " + keyword);
         }
 
-        var results = links.parallelStream()
-                .map(link -> {
-                    log.debug("Processing link: {}", link);
-                    return archiveFetcher.fetchArchivedSnapshot(link)
-                            .map(archivedUrl -> {
-                                var answers = answerExtractor.extractAnswers(archivedUrl);
-                                if (answers.isEmpty()) {
-                                    log.debug("No answers found for archived URL {}", archivedUrl);
-                                    return null;
-                                }
-                                return new QuoraAnswerResponse(link, archivedUrl, answers);
-                            })
-                            .orElse(null);
-                })
-                .filter(Objects::nonNull)
-                .collect(Collectors.toList());
+        links.forEach(link -> redisTemplate.opsForList().leftPush(KEY_PENDING_URLS, link));
+        log.info("Enqueued {} links into Redis queue '{}'", links.size(), KEY_PENDING_URLS);
 
-        log.info("Returning {} QuoraAnswerResponse(s) for keyword '{}'", results.size(), keyword);
+        return ResponseEntity.ok("Enqueued " + links.size() + " links for processing");
+    }
+
+    /**
+     * Get all available answers currently stored in Redis.
+     */
+    @GetMapping("/answers")
+    public ResponseEntity<Map<String, List<String>>> getAllAnswers() {
+        // Find all Redis keys matching quora:answers:*
+        Set<String> keys = redisTemplate.keys("quora:answers:*");
+
+        if (keys == null || keys.isEmpty()) {
+            return ResponseEntity.noContent().build();
+        }
+
+        Map<String, List<String>> results = keys.stream()
+                .collect(Collectors.toMap(
+                        key -> key,
+                        key -> Optional.ofNullable(redisTemplate.opsForList().range(key, 0, -1))
+                                .orElse(List.of())
+                ));
+
         return ResponseEntity.ok(results);
+    }
+
+    /**
+     * Queue status endpoint: see how many items are pending at each stage.
+     */
+    @GetMapping("/queue-status")
+    public ResponseEntity<Map<String, Long>> getQueueStatus() {
+        Map<String, Long> status = new HashMap<>();
+        status.put("pendingUrls", redisTemplate.opsForList().size(KEY_PENDING_URLS));
+        status.put("toExtract", redisTemplate.opsForList().size(KEY_TO_EXTRACT));
+        status.put("sentimentPending", redisTemplate.opsForList().size(KEY_SENTIMENT_PENDING));
+        return ResponseEntity.ok(status);
     }
 }

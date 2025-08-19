@@ -159,6 +159,11 @@ trainer:
 
 google:
   api:
-    key: REDACTED
+    key: ${GOOGLE_API_KEY}
   search:
-    cx: REDACTED
+    cx: ${GOOGLE_CX_ID}
+
+triggeriq:
+  quora:
+    user-agent: Mozilla/5.0 (TriggerIQ-Bot)
+    timeout-ms: 15000
