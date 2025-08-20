@@ -11,8 +11,10 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableScheduling
 @ComponentScan(basePackages = {"damnosol.triggeriq.sentiment.reddit",
         "damnosol.triggeriq.sentiment.quora",
+        "damnosol.triggeriq.repo.config",
+        "damnosol.triggeriq.service.config",
+        "damnosol.triggeriq.app.sentiment.quora",
         "damnosol.triggeriq.sentiment",
-        "damnosol.triggeriq.config",
         "damnosol.triggeriq.rest.reddit",
         "damnosol.triggeriq.rest.quora",
         "damnosol.triggeriq.jobs"})

@@ -1,4 +1,4 @@
-package damnosol.triggeriq.config;
+package damnosol.triggeriq.service.config;
 
 import org.springframework.context.annotation.Configuration;
 import org.springframework.retry.annotation.EnableRetry;

@@ -1,4 +1,4 @@
-package damnosol.triggeriq.config;
+package damnosol.triggeriq.repo.config;
 
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.*;
