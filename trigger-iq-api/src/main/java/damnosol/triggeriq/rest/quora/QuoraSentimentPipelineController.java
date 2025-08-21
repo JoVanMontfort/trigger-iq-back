@@ -56,7 +56,7 @@ public class QuoraSentimentPipelineController {
         // Find all Redis keys matching quora:answers:*
         Set<String> keys = redisTemplate.keys("quora:answers:*");
 
-        if (keys == null || keys.isEmpty()) {
+        if (keys.isEmpty()) {
             return ResponseEntity.noContent().build();
         }
 
