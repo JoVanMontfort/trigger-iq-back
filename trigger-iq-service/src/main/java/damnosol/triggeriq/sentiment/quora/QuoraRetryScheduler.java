@@ -6,6 +6,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.time.Clock;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
@@ -20,6 +21,7 @@ public class QuoraRetryScheduler {
     private static final int MAX_ATTEMPTS = 5;
 
     private final StringRedisTemplate redisTemplate;
+    private final Clock clock;
 
     /**
      * Store a failed URL with next retry time.
@@ -32,7 +34,7 @@ public class QuoraRetryScheduler {
         }
 
         long delaySeconds = (long) Math.pow(2, attempt); // exponential backoff
-        long retryAt = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(delaySeconds);
+        long retryAt = clock.millis() + TimeUnit.SECONDS.toMillis(delaySeconds);
 
         redisTemplate.opsForZSet().add(RETRY_KEY, url + "|" + attempt, retryAt);
         log.info("Scheduled retry #{} for {} at +{}s", attempt, url, delaySeconds);
@@ -43,7 +45,7 @@ public class QuoraRetryScheduler {
      */
     @Scheduled(fixedDelay = 5000)
     public void processRetries() {
-        long now = System.currentTimeMillis();
+        long now = clock.millis();
         Set<String> due = redisTemplate.opsForZSet()
                 .rangeByScore(RETRY_KEY, 0, now);
 

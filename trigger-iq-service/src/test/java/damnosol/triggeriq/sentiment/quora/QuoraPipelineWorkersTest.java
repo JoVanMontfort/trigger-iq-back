@@ -16,7 +16,6 @@ import static org.mockito.Mockito.*;
 
 class QuoraPipelineWorkersTest {
 
-    private StringRedisTemplate redisTemplate;
     private ListOperations<String, String> listOps;
     private QuoraArchiveFetcher archiveFetcher;
     private QuoraAnswerExtractor extractor;
@@ -25,7 +24,7 @@ class QuoraPipelineWorkersTest {
 
     @BeforeEach
     void setup() {
-        redisTemplate = mock(StringRedisTemplate.class);
+        StringRedisTemplate redisTemplate = mock(StringRedisTemplate.class);
         listOps = mock(ListOperations.class);
         when(redisTemplate.opsForList()).thenReturn(listOps);
 
