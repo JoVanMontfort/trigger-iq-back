@@ -2,10 +2,11 @@ package damnosol.triggeriq.sentiment.quora;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -13,37 +14,54 @@ import java.util.concurrent.TimeUnit;
 @RequiredArgsConstructor
 public class QuoraRetryScheduler {
 
-    private final RedisTemplate<String, String> redisTemplate;
+    private static final String RETRY_KEY = "quora:retry";
+    private static final String KEY_PENDING_URLS = "quora:pending";
+    private static final String DEAD_LETTER_KEY = "quora:dead";
+    private static final int MAX_ATTEMPTS = 5;
 
-    private static final String RETRY_QUEUE = "quora:retry:queue";
-    private static final String ARCHIVE_QUEUE = "quora:archive:queue";
+    private final StringRedisTemplate redisTemplate;
 
     /**
-     * When a fetch fails, push it here with a delay.
+     * Store a failed URL with next retry time.
      */
     public void scheduleRetry(String url, int attempt) {
+        if (attempt > MAX_ATTEMPTS) {
+            log.error("Giving up on {} after {} attempts, moving to dead-letter queue", url, attempt - 1);
+            redisTemplate.opsForList().leftPush(DEAD_LETTER_KEY, url);
+            return;
+        }
+
         long delaySeconds = (long) Math.pow(2, attempt); // exponential backoff
         long retryAt = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(delaySeconds);
 
-        log.warn("Scheduling retry for {} in {} seconds (attempt {})", url, delaySeconds, attempt);
-
-        redisTemplate.opsForZSet().add(RETRY_QUEUE, url, retryAt);
+        redisTemplate.opsForZSet().add(RETRY_KEY, url + "|" + attempt, retryAt);
+        log.info("Scheduled retry #{} for {} at +{}s", attempt, url, delaySeconds);
     }
 
     /**
-     * Periodically poll for due retries and requeue them.
+     * Periodically check retries and requeue expired ones.
      */
-    @Scheduled(fixedDelay = 10000)
+    @Scheduled(fixedDelay = 5000)
     public void processRetries() {
         long now = System.currentTimeMillis();
-        var due = redisTemplate.opsForZSet().rangeByScore(RETRY_QUEUE, 0, now);
+        Set<String> due = redisTemplate.opsForZSet()
+                .rangeByScore(RETRY_KEY, 0, now);
 
-        if (due == null || due.isEmpty()) return;
+        if (due == null || due.isEmpty()) {
+            return;
+        }
 
-        for (String url : due) {
-            log.info("Re-queueing failed URL {}", url);
-            redisTemplate.opsForList().rightPush(ARCHIVE_QUEUE, url);
-            redisTemplate.opsForZSet().remove(RETRY_QUEUE, url);
+        for (String entry : due) {
+            redisTemplate.opsForZSet().remove(RETRY_KEY, entry);
+            String[] parts = entry.split("\\|");
+            String url = parts[0];
+            int attempt = Integer.parseInt(parts[1]);
+
+            log.info("Retrying {} (attempt #{})", url, attempt);
+            redisTemplate.opsForList().leftPush(KEY_PENDING_URLS, url);
+
+            // next retry scheduled here
+            scheduleRetry(url, attempt + 1);
         }
     }
 }
