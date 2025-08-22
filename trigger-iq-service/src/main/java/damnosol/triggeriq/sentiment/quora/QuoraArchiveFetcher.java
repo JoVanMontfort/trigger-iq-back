@@ -54,12 +54,26 @@ public class QuoraArchiveFetcher {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(searchUrl))
                     .timeout(Duration.ofSeconds(20))
+                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
+                            "AppleWebKit/537.36 (KHTML, like Gecko) " +
+                            "Chrome/117.0.0.0 Safari/537.36")
+                    .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                    .header("Accept-Language", "en-US,en;q=0.9")
                     .GET()
                     .build();
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() != 200) {
                 log.warn("Non-200 from archive.ph search for {}: {}", url, response.statusCode());
+
+                try {
+                    Thread.sleep(10000);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                }
+
+                log.info("Archive.ph response body for {}: {}", url, response.body());
+
                 return Optional.empty();
             }
 
