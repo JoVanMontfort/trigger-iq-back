@@ -5,10 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -27,43 +24,67 @@ public class QuoraSentimentPipelineController {
     private final QuoraLinkFetcher linkFetcher;
 
     /**
-     * Enqueue links for a given keyword.
+     * Enqueue either a direct Quora URL or links discovered via keyword.
      */
-    @GetMapping("/enqueue")
-    public ResponseEntity<String> enqueueQuoraLinks(@RequestParam String keyword) {
-        if (keyword == null || keyword.isBlank()) {
-            return ResponseEntity.badRequest().body("Keyword must not be empty");
+    @PostMapping("/enqueue")
+    public ResponseEntity<Map<String, Object>> enqueueQuoraLinks(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String url
+    ) {
+        if ((keyword == null || keyword.isBlank()) && (url == null || url.isBlank())) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Either 'keyword' or 'url' must be provided"));
         }
 
-        log.info("Fetching Quora links for keyword '{}'", keyword);
-        List<String> links = linkFetcher.fetchQuoraLinks(keyword);
+        List<String> links = new ArrayList<>();
+        try {
+            if (url != null && !url.isBlank()) {
+                links.add(url);
+            } else {
+                log.info("Fetching Quora links for keyword '{}'", keyword);
+                links = linkFetcher.fetchQuoraLinks(keyword);
+            }
 
-        if (links.isEmpty()) {
-            return ResponseEntity.ok("No links found for keyword: " + keyword);
+            if (links.isEmpty()) {
+                return ResponseEntity.ok(Map.of(
+                        "message", "No links found",
+                        "keyword", keyword
+                ));
+            }
+
+            links.forEach(link -> redisTemplate.opsForList().leftPush(KEY_PENDING_URLS, link));
+            log.info("Enqueued {} links into Redis queue '{}'", links.size(), KEY_PENDING_URLS);
+
+            return ResponseEntity.ok(Map.of(
+                    "enqueuedCount", links.size(),
+                    "links", links
+            ));
+        } catch (Exception e) {
+            log.error("Error enqueueing links", e);
+            return ResponseEntity.internalServerError().body(Map.of(
+                    "error", "Failed to enqueue links",
+                    "details", e.getMessage()
+            ));
         }
-
-        links.forEach(link -> redisTemplate.opsForList().leftPush(KEY_PENDING_URLS, link));
-        log.info("Enqueued {} links into Redis queue '{}'", links.size(), KEY_PENDING_URLS);
-
-        return ResponseEntity.ok("Enqueued " + links.size() + " links for processing");
     }
 
     /**
      * Get all available answers currently stored in Redis.
      */
     @GetMapping("/answers")
-    public ResponseEntity<Map<String, List<String>>> getAllAnswers() {
-        // Find all Redis keys matching quora:answers:*
+    public ResponseEntity<Map<String, List<String>>> getAllAnswers(
+            @RequestParam(defaultValue = "100") int limit
+    ) {
+        // WARNING: KEYS is O(n), use SCAN in production
         Set<String> keys = redisTemplate.keys("quora:answers:*");
-
-        if (keys.isEmpty()) {
+        if (keys == null || keys.isEmpty()) {
             return ResponseEntity.noContent().build();
         }
 
         Map<String, List<String>> results = keys.stream()
                 .collect(Collectors.toMap(
                         key -> key,
-                        key -> Optional.ofNullable(redisTemplate.opsForList().range(key, 0, -1))
+                        key -> Optional.ofNullable(redisTemplate.opsForList().range(key, 0, limit - 1))
                                 .orElse(List.of())
                 ));
 
